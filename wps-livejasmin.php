@@ -1,15 +1,14 @@
 <?php
 /**
  * Plugin Name: WPS LiveJasmin
- * Plugin URI: https://www.wp-script.com/plugins/livejasmin/
- * Description: Import LiveJasmin livecam embed videos in your WordPress posts
- * Author: WP-Script
- * Author URI: https://www.wp-script.com
- * Version: 1.3.2
+ * Plugin URI: https://top-models.webcam
+ * Description: Import LiveJasmin/AW Empire Tube videos with API-optimized search, performer sync, pagination, and debug tools.
+ * Version: 3.3V Adultwebmaster69
+ * Author: TMW
+ * Author URI: https://top-models.webcam
+ * License: GPL-2.0+
  * Text Domain: wps-livejasmin
  * Domain Path: /languages
- *
- * @package LVJM\Main
  */
 
 // Exit if accessed directly.
