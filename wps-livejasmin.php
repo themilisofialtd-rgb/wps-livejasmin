@@ -732,6 +732,52 @@ if ( ! function_exists( 'lvjm_recursive_sanitize_text_field' ) ) {
         }
 }
 
+if ( ! function_exists( 'lvjm_resolve_partner_credential' ) ) {
+        /**
+         * Resolve a partner credential from saved options supporting multiple key formats.
+         *
+         * @param array  $options     Partner options as stored in the database.
+         * @param string $lower_key   Lowercase option key (e.g. psid, accesskey).
+         * @param string $camel_key   CamelCase option key (e.g. PSID, accessKey).
+         * @param string $label       Human readable credential label for logging.
+         *
+         * @return array{
+         *     value: string,
+         *     key: string
+         * }
+         */
+        function lvjm_resolve_partner_credential( $options, $lower_key, $camel_key, $label ) {
+                $value    = '';
+                $key_used = '';
+
+                if ( isset( $options[ $lower_key ] ) && '' !== $options[ $lower_key ] ) {
+                        $value    = $options[ $lower_key ];
+                        $key_used = $lower_key;
+                } elseif ( isset( $options[ $camel_key ] ) && '' !== $options[ $camel_key ] ) {
+                        $value    = $options[ $camel_key ];
+                        $key_used = $camel_key;
+                }
+
+                $value = '' !== $value ? sanitize_text_field( (string) $value ) : '';
+
+                if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                        error_log(
+                                sprintf(
+                                        '[WPS-LiveJasmin] Resolved %1$s using key "%2$s": %3$s',
+                                        $label,
+                                        '' !== $key_used ? $key_used : 'none',
+                                        '' !== $value ? $value : '(empty)'
+                                )
+                        );
+                }
+
+                return array(
+                        'value' => $value,
+                        'key'   => $key_used,
+                );
+        }
+}
+
 if ( ! function_exists( 'lvjm_normalize_category_slug' ) ) {
         /**
          * Normalize a partner category identifier to a slug compatible with the API/cache.
