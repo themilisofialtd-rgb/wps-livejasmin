@@ -165,7 +165,7 @@ function lvjm_import_videos_page() {
 													<button v-show="!searchingVideos && !videosHasBeenSearched" v-on:click.prevent="searchVideos('create')" class="btn btn-info" v-bind:class="searchBtnClass" rel="tooltip" data-placement="top" v-bind:data-original-title="searchButtonTooltip"><i class="fa fa-search" aria-hidden="true"></i> <?php esc_html_e( 'Search videos', 'lvjm_lang' ); ?></button>
 													<button v-show="searchingVideos" disabled="disabled" class="btn btn-info"><i class="fa fa-spinner fa-pulse" aria-hidden="true"></i> <?php esc_html_e( 'Searching videos...', 'lvjm_lang' ); ?></button>
 													<?php /* translators: %s: number of videos in the search results */ ?>
-													<small><i class="fa fa-info-circle" aria-hidden="true"></i> <?php printf( esc_html__( 'Each search displays up to %s unique videos at a time and excludes any videos already imported.', 'lvjm_lang' ), '{{data.videosLimit}}' ); ?></small>
+                                                                                                        <small><i class="fa fa-info-circle" aria-hidden="true"></i> <?php printf( esc_html__( 'Each search displays up to %s videos at a time, including previously imported ones (marked as Already Imported).', 'lvjm_lang' ), '{{data.videosLimit}}' ); ?></small>
 												</div>
 											</div>
 										</div>
@@ -275,8 +275,11 @@ function lvjm_import_videos_page() {
 																		<span v-if="video.trailer_url != ''" class="video-has-trailer"> <small><i class="fa fa-file-video-o" aria-hidden="true"></i> 1</small></span>
 																	</div>
 																</div>
-																<h4>{{video.title}}</h4>
-																<div class="text-center" v-if="!video.grabbed">
+                                                                                                                              <h4>{{video.title}}</h4>
+                                                                                                                               <p v-if="video.import_status === 'existing'" class="text-center">
+                                                                                                                                        <span class="label label-warning"><?php esc_html_e( 'Already Imported', 'lvjm_lang' ); ?></span>
+                                                                                                                               </p>
+                                                                                                                              <div class="text-center" v-if="!video.grabbed">
 																	<div class="btn-group">
 																		<div class="btn-group">
 																			<button v-on:click.prevent="toggleVideo(index, 'list')" class="btn text-center video-check" v-bind:class="[video.checked ? 'btn-success':'btn-default']" v-bind:disabled="loading.removingVideo" rel="tooltip" data-placement="top" data-original-title="<?php esc_html_e( 'Check to import this video', 'lvjm_lang' ); ?>"><i class="fa-lg" v-bind:class="[video.checked ? 'fa fa-check-square-o':'fa fa-square-o']" aria-hidden="true"></i></button>
@@ -321,8 +324,11 @@ function lvjm_import_videos_page() {
 																		</template>
 																		<template v-else>
 																			<td>
-																				<div class="margin-bottom-5"><input type="text" name="" v-model="video.title" v-bind:disabled="video.grabbed" class="form-control" placeholder="<?php esc_html_e( 'Title', 'lvjm_lang' ); ?>..."></div>
-																				<template v-if="video.duration"><i class="fa fa-clock-o" aria-hidden="true"></i> <small>{{video.duration | timeFormat}}</small></template>
+                                                                                                                              <div class="margin-bottom-5"><input type="text" name="" v-model="video.title" v-bind:disabled="video.grabbed" class="form-control" placeholder="<?php esc_html_e( 'Title', 'lvjm_lang' ); ?>..."></div>
+                                                                                                                               <div v-if="video.import_status === 'existing'" class="margin-bottom-5">
+                                                                                                                                        <span class="label label-warning"><?php esc_html_e( 'Already Imported', 'lvjm_lang' ); ?></span>
+                                                                                                                               </div>
+                                                                                                                              <template v-if="video.duration"><i class="fa fa-clock-o" aria-hidden="true"></i> <small>{{video.duration | timeFormat}}</small></template>
 																				<template v-if="video.thumbs_urls != ''"> | <i class="fa fa-th-large" aria-hidden="true"></i> <small>{{video.thumbs_urls.length}}</small></template>
 																				<template v-if="video.trailer_url != ''"> | <i class="fa fa-file-video-o" aria-hidden="true"></i> <small>1</small></template>
 																			</td>
