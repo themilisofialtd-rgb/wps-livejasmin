@@ -25,10 +25,14 @@ function lvjm_search_videos( $params = '' ) {
     $videos         = array();
     $searched_data  = array();
     $performer      = isset( $params['performer'] ) ? sanitize_text_field( (string) $params['performer'] ) : '';
+    $result_message = '';
+    $last_category_label = '';
+    $last_category_slug  = '';
     $is_multi  = isset( $params['multi_category_search'] ) && '1' === (string) $params['multi_category_search'];
     $multi_category_meta = array(
         'active'        => false,
         'auto_continue' => false,
+        'message'       => '',
     );
 
     if ( $is_multi ) {
@@ -51,6 +55,7 @@ function lvjm_search_videos( $params = '' ) {
             'count'                => 0,
             'completed'            => $start_index >= $total_categories,
             'auto_continue'        => false,
+            'message'              => '',
         );
 
         for ( $index = $start_index; $index < $total_categories; $index++ ) {
@@ -62,6 +67,9 @@ function lvjm_search_videos( $params = '' ) {
             $raw_category_id   = $category_id;
             $search_category   = $raw_category_id;
             $is_keyword_search = false;
+
+            $last_category_label = $raw_category_id;
+            $last_category_slug  = $normalized_slug;
 
             if ( false !== strpos( $search_category, 'kw::' ) ) {
                 $is_keyword_search = true;
@@ -143,10 +151,14 @@ function lvjm_search_videos( $params = '' ) {
                 $multi_category_meta['next_index']            = $index + 1;
                 $multi_category_meta['has_more']              = $multi_category_meta['next_index'] < $total_categories;
                 $multi_category_meta['completed']             = ! $multi_category_meta['has_more'];
+                $result_message                               = sprintf( '%1$s — showing %2$d video(s).', $raw_category_id, $multi_category_meta['count'] );
+                $multi_category_meta['message']               = $result_message;
                 break;
             }
 
             $multi_category_meta['next_index'] = $index + 1;
+            $result_message = sprintf( 'No results found in %s.', $raw_category_id );
+            $multi_category_meta['message'] = $result_message;
         }
 
         if ( empty( $videos ) ) {
@@ -155,14 +167,40 @@ function lvjm_search_videos( $params = '' ) {
             $multi_category_meta['count']      = 0;
             $multi_category_meta['completed']  = true;
             $multi_category_meta['auto_continue'] = false;
+            if ( '' !== $last_category_label ) {
+                $result_message = sprintf( 'No results found in %s.', $last_category_label );
+                $multi_category_meta['current_category']      = $last_category_label;
+                $multi_category_meta['current_category_slug'] = $last_category_slug;
+                $multi_category_meta['message']               = $result_message;
+            }
         }
     } else {
+        if ( isset( $params['cat_s'] ) && ! isset( $params['cat_s_encoded'] ) ) {
+            $params['cat_s_encoded'] = rawurlencode( (string) $params['cat_s'] );
+        }
         $search_videos = new LVJM_Search_Videos( $params );
         if ( $search_videos->has_errors() ) {
             $errors = (array) $search_videos->get_errors();
         } else {
             $videos = (array) $search_videos->get_videos();
             $searched_data = $search_videos->get_searched_data();
+        }
+
+        $single_category = '';
+        if ( isset( $params['category'] ) && '' !== $params['category'] ) {
+            $single_category = (string) $params['category'];
+        } elseif ( isset( $params['cat_s'] ) && '' !== $params['cat_s'] ) {
+            $single_category = (string) $params['cat_s'];
+        }
+
+        if ( '' !== $single_category ) {
+            $count_videos   = is_array( $videos ) ? count( $videos ) : 0;
+            if ( $count_videos > 0 ) {
+                $result_message = sprintf( '%1$s — showing %2$d video(s).', $single_category, $count_videos );
+            } else {
+                $result_message = sprintf( 'No results found in %s.', $single_category );
+            }
+            error_log( sprintf( '[WPS-LiveJasmin] Category: %s — count: %d', $single_category, $count_videos ) );
         }
     }
 
@@ -231,6 +269,7 @@ function lvjm_search_videos( $params = '' ) {
             'errors'        => $errors,
             'searched_data' => $searched_data,
             'multi_category'=> $multi_category_meta,
+            'result_message'=> $result_message,
         )
     );
 
