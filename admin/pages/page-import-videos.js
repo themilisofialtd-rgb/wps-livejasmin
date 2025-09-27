@@ -90,7 +90,6 @@ function LVJM_pageImportVideos() {
 
                 partnerCatsLoading: false,
                 partnerCats: [],
-                selectedPartnerCats: '',
 
                 // allPartnersCounter: 0,
                 filteredPartnersCounter: 0,
@@ -461,7 +460,7 @@ function LVJM_pageImportVideos() {
                                 kw: kw,
                                 limit: this.data.videosLimit,
                                 method: method,
-                                multi_category_search: this.selectedPartnerCats === 'all_straight' ? 1 : 0,
+                                multi_category_search: cat_s === 'all_straight' || this.selectedCat === 'all_straight' ? 1 : 0,
                                 nonce: LVJM_import_videos.ajax.nonce,
                                 original_cat_s: cat_s.replace('&', '%%'),
                                 partner: partner,
