@@ -150,26 +150,55 @@ class LVJM_Search_Videos {
 					$this->feed_infos = $response_body->data->feed_infos;
 					$this->feed_url   = $this->get_partner_feed_infos( $this->feed_infos->feed_url->data );
 
-        // Replace template variables in feed_url
-        $this->feed_url = str_replace(
-            [
-                '<%$this->params["cat_s"]%>',
-                '<%get_partner_option("psid")%>',
-                '<%get_partner_option("accesskey")%>'
-            ],
-            [
-                isset($this->params['cat_s']) ? $this->params['cat_s'] : '',
-                get_option('wps_lj_psid'),
-                get_option('wps_lj_accesskey')
-            ],
-            $this->feed_url
-        );
+                                        $cat_s = isset( $this->params['cat_s'] ) ? $this->params['cat_s'] : '';
 
-        // Append performer filter if provided
-        if ( isset($this->params['performer']) && !empty($this->params['performer']) ) {
-            $name = urlencode($this->params['performer']);
-            $this->feed_url .= '&forcedPerformers[]=' . $name;
-        }
+                                        $this->feed_url = str_replace(
+                                                '<%$this->params["cat_s"]%>',
+                                                $cat_s,
+                                                $this->feed_url
+                                        );
+
+                                        $saved_partner_options = WPSCORE()->get_product_option( 'LVJM', $this->params['partner']['id'] . '_options' );
+                                        $psid                 = '';
+                                        $access_key           = '';
+
+                                        if ( is_array( $saved_partner_options ) ) {
+                                                $psid       = isset( $saved_partner_options['psid'] ) ? sanitize_text_field( (string) $saved_partner_options['psid'] ) : '';
+                                                $access_key = isset( $saved_partner_options['accesskey'] ) ? sanitize_text_field( (string) $saved_partner_options['accesskey'] ) : '';
+                                        }
+
+                                        if ( empty( $psid ) ) {
+                                                $psid = sanitize_text_field( (string) get_option( 'wps_lj_psid' ) );
+                                        }
+
+                                        if ( empty( $access_key ) ) {
+                                                $access_key = sanitize_text_field( (string) get_option( 'wps_lj_accesskey' ) );
+                                        }
+
+                                        if ( ! empty( $psid ) && ! empty( $access_key ) ) {
+                                                $this->feed_url = str_replace(
+                                                        array(
+                                                                '<%get_partner_option("psid")%>',
+                                                                '<%get_partner_option("accesskey")%>',
+                                                        ),
+                                                        array(
+                                                                $psid,
+                                                                $access_key,
+                                                        ),
+                                                        $this->feed_url
+                                                );
+                                        } else {
+                                                error_log( '[WPS-LiveJasmin ERROR] PSID or AccessKey missing, cannot replace placeholders.' );
+                                                return;
+                                        }
+
+                                        error_log( '[WPS-LiveJasmin] Feed URL finalized: ' . $this->feed_url );
+
+                                        // Append performer filter if provided.
+                                        if ( isset( $this->params['performer'] ) && ! empty( $this->params['performer'] ) ) {
+                                                $name             = urlencode( $this->params['performer'] );
+                                                $this->feed_url .= '&forcedPerformers[]=' . $name;
+                                        }
 
 					if ( ! $this->feed_url ) {
 						WPSCORE()->write_log( 'error', 'Connection to Partner\'s API failed (feed url: <code>' . $this->feed_url . '</code> partner id: <code>:' . $this->params['partner']['id'] . '</code>)', __FILE__, __LINE__ );
