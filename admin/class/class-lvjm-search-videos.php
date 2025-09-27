@@ -341,18 +341,24 @@ class LVJM_Search_Videos {
 	 *
 	 * @return bool true if there are no error, false if not.
 	 */
-	private function retrieve_videos_from_json_feed() {
-		$existing_ids           = $this->get_partner_existing_ids();
-		$array_valid_videos     = array();
-		$counters               = array(
+        private function retrieve_videos_from_json_feed() {
+                $existing_ids           = $this->get_partner_existing_ids();
+                $limit                  = isset( $this->params['limit'] ) ? absint( $this->params['limit'] ) : 60;
+                if ( $limit <= 0 ) {
+                        $limit = 60;
+                }
+                $limit                 = min( $limit, 60 );
+                $this->params['limit'] = $limit;
+                $array_valid_videos     = array();
+                $counters               = array(
 			'valid_videos'    => 0,
 			'invalid_videos'  => 0,
 			'existing_videos' => 0,
 			'removed_videos'  => 0,
 		);
-		$videos_details         = array();
-		$count_valid_feed_items = 0;
-		$end                    = false;
+                $videos_details         = array();
+                $count_valid_feed_items = 0;
+                $end                    = false;
 
 		$root_feed_url = $this->get_feed_url_with_orientation();
 
@@ -434,58 +440,74 @@ class LVJM_Search_Videos {
 				$current_item           = 0;
 				$page_end               = false;
 			}
-			while ( false === $page_end ) {
-				$feed_item = new LVJM_Json_Item( $array_feed[ $current_item ] );
-				$feed_item->init( $this->params, $this->feed_infos );
-				if ( $feed_item->is_valid() ) {
-					if ( ! in_array( $feed_item->get_id(), (array) $existing_ids['partner_all_videos_ids'], true ) ) {
-						$array_valid_videos[] = (array) $feed_item->get_data_for_json( $count_valid_feed_items );
-						$videos_details[]     = array(
-							'id'       => $feed_item->get_id(),
-							'response' => 'Success',
-						);
-						++$counters['valid_videos'];
-						++$count_valid_feed_items;
-					} elseif ( in_array( $feed_item->get_id(), (array) $existing_ids['partner_existing_videos_ids'], true ) ) {
-							$videos_details[] = array(
-								'id'       => $feed_item->get_id(),
-								'response' => 'Already imported',
-							);
-							++$counters['existing_videos'];
-					} elseif ( in_array( $feed_item->get_id(), (array) $existing_ids['partner_unwanted_videos_ids'], true ) ) {
-						$videos_details[] = array(
-							'id'       => $feed_item->get_id(),
-							'response' => 'You removed it from search results',
-						);
-						++$counters['removed_videos'];
-					}
-				} else {
-					$videos_details[] = array(
-						'id'       => $feed_item->get_id(),
-						'response' => 'Invalid',
-					);
-					++$counters['invalid_videos'];
-				}
-				if ( ( $count_valid_feed_items >= $this->params['limit'] ) || $current_item >= ( $count_total_feed_items - 1 ) ) {
-					$page_end = true;
-					++$current_page;
-					if ( $count_valid_feed_items >= $this->params['limit'] ) {
-						$end = true;
-					}
-				}
-				++$current_item;
-			}
+                        while ( false === $page_end ) {
+                                $feed_item = new LVJM_Json_Item( $array_feed[ $current_item ] );
+                                $feed_item->init( $this->params, $this->feed_infos );
+                                if ( $feed_item->is_valid() ) {
+                                        $feed_item_id = $feed_item->get_id();
+
+                                        if ( in_array( $feed_item_id, (array) $existing_ids['partner_unwanted_videos_ids'], true ) ) {
+                                                $videos_details[] = array(
+                                                        'id'       => $feed_item_id,
+                                                        'response' => 'You removed it from search results',
+                                                );
+                                                ++$counters['removed_videos'];
+                                        } else {
+                                                $is_existing = in_array( $feed_item_id, (array) $existing_ids['partner_existing_videos_ids'], true );
+
+                                                if ( ! in_array( $feed_item_id, (array) $array_found_ids, true ) ) {
+                                                        $video_data = (array) $feed_item->get_data_for_json( $count_valid_feed_items );
+                                                        $video_data['already_imported'] = $is_existing;
+
+                                                        if ( $is_existing ) {
+                                                                $video_data['checked'] = false;
+                                                                $video_data['grabbed'] = true;
+                                                        }
+
+                                                        $array_valid_videos[] = $video_data;
+                                                        $array_found_ids[]    = $feed_item_id;
+
+                                                        $videos_details[] = array(
+                                                                'id'       => $feed_item_id,
+                                                                'response' => $is_existing ? 'Already imported' : 'Success',
+                                                        );
+
+                                                        if ( $is_existing ) {
+                                                                ++$counters['existing_videos'];
+                                                        } else {
+                                                                ++$counters['valid_videos'];
+                                                        }
+
+                                                        ++$count_valid_feed_items;
+                                                }
+                                        }
+                                } else {
+                                        $videos_details[] = array(
+                                                'id'       => $feed_item->get_id(),
+                                                'response' => 'Invalid',
+                                        );
+                                        ++$counters['invalid_videos'];
+                                }
+                                if ( ( $count_valid_feed_items >= $this->params['limit'] ) || $current_item >= ( $count_total_feed_items - 1 ) ) {
+                                        $page_end = true;
+                                        ++$current_page;
+                                        if ( $count_valid_feed_items >= $this->params['limit'] ) {
+                                                $end = true;
+                                        }
+                                }
+                                ++$current_item;
+                        }
 		}
 
 		unset( $array_feed );
-		$this->searched_data = array(
-			'videos_details' => $videos_details,
-			'counters'       => $counters,
-			'videos'         => $array_valid_videos,
-		);
-		$this->videos        = $array_valid_videos;
-		return true;
-	}
+                $this->searched_data = array(
+                        'videos_details' => $videos_details,
+                        'counters'       => $counters,
+                        'videos'         => $array_valid_videos,
+                );
+                $this->videos        = $array_valid_videos;
+                return true;
+        }
 
 	/**
 	 * Get partner feed info from a feed item given.
