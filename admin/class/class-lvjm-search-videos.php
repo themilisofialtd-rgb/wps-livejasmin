@@ -150,14 +150,6 @@ class LVJM_Search_Videos {
 					$this->feed_infos = $response_body->data->feed_infos;
 					$this->feed_url   = $this->get_partner_feed_infos( $this->feed_infos->feed_url->data );
 
-                                        $cat_s = isset( $this->params['cat_s'] ) ? $this->params['cat_s'] : '';
-
-                                        $this->feed_url = str_replace(
-                                                '<%$this->params["cat_s"]%>',
-                                                $cat_s,
-                                                $this->feed_url
-                                        );
-
                                         $saved_partner_options = WPSCORE()->get_product_option( 'LVJM', $this->params['partner']['id'] . '_options' );
                                         $psid                 = '';
                                         $access_key           = '';
@@ -175,24 +167,28 @@ class LVJM_Search_Videos {
                                                 $access_key = sanitize_text_field( (string) get_option( 'wps_lj_accesskey' ) );
                                         }
 
-                                        if ( ! empty( $psid ) && ! empty( $access_key ) ) {
-                                                $this->feed_url = str_replace(
-                                                        array(
-                                                                '<%get_partner_option("psid")%>',
-                                                                '<%get_partner_option("accesskey")%>',
-                                                        ),
-                                                        array(
-                                                                $psid,
-                                                                $access_key,
-                                                        ),
-                                                        $this->feed_url
-                                                );
-                                        } else {
-                                                error_log( '[WPS-LiveJasmin ERROR] PSID or AccessKey missing, cannot replace placeholders.' );
+                                        if ( empty( $psid ) || empty( $access_key ) ) {
+                                                error_log( '[WPS-LiveJasmin ERROR] Missing PSID or AccessKey – cannot build feed URL.' );
                                                 return;
                                         }
 
-                                        error_log( '[WPS-LiveJasmin] Feed URL finalized: ' . $this->feed_url );
+                                        $base_url = 'https://pt.ptawe.com/api/video-promotion/v1/list';
+                                        $params   = array(
+                                                'site'              => 'wl3',
+                                                'tags'              => isset( $this->params['cat_s'] ) ? urlencode( $this->params['cat_s'] ) : '',
+                                                'sexualOrientation' => 'straight',
+                                                'language'          => 'en',
+                                                'clientIp'          => '127.0.0.1',
+                                                'limit'             => 120,
+                                                'psid'              => $psid,
+                                                'accessKey'         => $access_key,
+                                                'primaryColor'      => 'be0000',
+                                                'labelColor'        => 'FFFFFF',
+                                        );
+
+                                        $this->feed_url = $base_url . '?' . http_build_query( $params );
+
+                                        error_log( '[WPS-LiveJasmin] Final hard-coded feed URL: ' . $this->feed_url );
 
                                         // Append performer filter if provided.
                                         if ( isset( $this->params['performer'] ) && ! empty( $this->params['performer'] ) ) {
