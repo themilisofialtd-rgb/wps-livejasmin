@@ -343,6 +343,7 @@ class LVJM_Search_Videos {
                 $count_valid_feed_items = 0;
                 $end                    = false;
                 $total_pages            = null;
+                $max_pages_cutoff       = 50;
 
 		$root_feed_url = $this->get_feed_url_with_orientation();
 
@@ -368,7 +369,36 @@ class LVJM_Search_Videos {
 
                 while ( false === $end ) {
 
+                        $log_performer = isset( $this->params['performer'] ) ? sanitize_text_field( (string) $this->params['performer'] ) : '';
+                        $log_category  = isset( $this->params['cat_s'] ) ? sanitize_text_field( (string) $this->params['cat_s'] ) : '';
+                        $category_for_log = $log_category;
+                        if ( '' === $category_for_log && isset( $this->params['category'] ) ) {
+                                $category_for_log = sanitize_text_field( (string) $this->params['category'] );
+                        }
+
                         if ( null !== $total_pages && $current_page > $total_pages ) {
+                                error_log(
+                                        sprintf(
+                                                '[WPS-LiveJasmin] Reached total pages (%d). Performer: %s, Category: %s',
+                                                $total_pages,
+                                                '' === $log_performer ? 'n/a' : $log_performer,
+                                                '' === $category_for_log ? 'n/a' : $category_for_log
+                                        )
+                                );
+                                $end = true;
+                                break;
+                        }
+
+                        if ( $current_page > $max_pages_cutoff ) {
+                                error_log(
+                                        sprintf(
+                                                '[WPS-LiveJasmin] Safety cutoff triggered at page %d. Performer: %s, Category: %s',
+                                                $max_pages_cutoff,
+                                                '' === $log_performer ? 'n/a' : $log_performer,
+                                                '' === $category_for_log ? 'n/a' : $category_for_log
+                                        )
+                                );
+                                $end = true;
                                 break;
                         }
 
@@ -376,8 +406,6 @@ class LVJM_Search_Videos {
                                         $this->feed_url = $root_feed_url . $paged . $current_page;
                         }
 
-                        $log_performer = isset( $this->params['performer'] ) ? sanitize_text_field( (string) $this->params['performer'] ) : '';
-                        $log_category  = isset( $this->params['cat_s'] ) ? sanitize_text_field( (string) $this->params['cat_s'] ) : '';
                         $log_feed_url  = $this->feed_url ? esc_url_raw( (string) $this->feed_url ) : '';
 
                         error_log(
@@ -391,33 +419,28 @@ class LVJM_Search_Videos {
                         );
                         $response = wp_remote_get( $this->feed_url, $args );
 
-			if ( is_wp_error( $response ) ) {
-				WPSCORE()->write_log( 'error', 'Retrieving videos from JSON feed failed<code>ERROR: ' . wp_json_encode( $response->errors ) . '</code>', __FILE__, __LINE__ );
-				return false;
-			}
+                        if ( is_wp_error( $response ) ) {
+                                WPSCORE()->write_log( 'error', 'Retrieving videos from JSON feed failed<code>ERROR: ' . wp_json_encode( $response->errors ) . '</code>', __FILE__, __LINE__ );
+                                return false;
+                        }
 
-			if ( 403 === wp_remote_retrieve_response_code( $response ) ) {
-				WPSCORE()->write_log( 'error', 'Your AWEmpire PSID or Access Key is wrong. Please configure LiveJasmin.', __FILE__, __LINE__ );
-				$this->errors = array(
-					'code'     => 'AWEmpire credentials error',
-					'message'  => 'Your AWEmpire PSID or Access Key is wrong.',
-					'solution' => 'Please configure LiveJasmin.',
-				);
-				return false;
-			}
+                        if ( 403 === wp_remote_retrieve_response_code( $response ) ) {
+                                WPSCORE()->write_log( 'error', 'Your AWEmpire PSID or Access Key is wrong. Please configure LiveJasmin.', __FILE__, __LINE__ );
+                                $this->errors = array(
+                                        'code'     => 'AWEmpire credentials error',
+                                        'message'  => 'Your AWEmpire PSID or Access Key is wrong.',
+                                        'solution' => 'Please configure LiveJasmin.',
+                                );
+                                return false;
+                        }
 
-			$response_body = json_decode( wp_remote_retrieve_body( $response ), true );
+                        $response_body = json_decode( wp_remote_retrieve_body( $response ), true );
 
                         if ( isset( $response_body['data']['pagination']['totalPages'] ) ) {
                                 $total_pages = (int) $response_body['data']['pagination']['totalPages'];
                         }
 
                         if ( '' !== $log_performer ) {
-                                $category_for_log = $log_category;
-                                if ( '' === $category_for_log && isset( $this->params['category'] ) ) {
-                                        $category_for_log = sanitize_text_field( (string) $this->params['category'] );
-                                }
-
                                 $results_count = 0;
                                 if ( isset( $response_body['data']['videos'] ) && is_array( $response_body['data']['videos'] ) ) {
                                         $results_count = count( $response_body['data']['videos'] );
@@ -439,33 +462,40 @@ class LVJM_Search_Videos {
                                 $videos_details[] = array(
                                         'id'       => 'end',
                                         'response' => 'livejasmin API Error',
-				);
-			}
+                                );
+                        }
 
-			// feed url last page reached.
+                        // feed url last page reached.
                         if ( 0 === count( (array) $response_body['data']['videos'] ) ) {
+                                error_log(
+                                        sprintf(
+                                                '[WPS-LiveJasmin] No videos found, ending loop. Performer: %s, Category: %s',
+                                                '' === $log_performer ? 'n/a' : $log_performer,
+                                                '' === $category_for_log ? 'n/a' : $category_for_log
+                                        )
+                                );
                                 $end              = true;
                                 $page_end         = true;
                                 $videos_details[] = array(
                                         'id'       => 'end',
                                         'response' => 'No more videos',
-				);
-			} else {
-				// améliorer root selon paramètres / ou si null dans la config.
-				if ( isset( $this->feed_infos->feed_item_path->node ) ) {
-					$root       = $this->feed_infos->feed_item_path->node;
-					$array_feed = $response_body['data'][ $root ];
-				} else {
-					$root       = 0;
-					$array_feed = $response_body['data'];
-				}
-				$count_total_feed_items = count( $array_feed );
-				$current_item           = 0;
-				$page_end               = false;
-			}
-			while ( false === $page_end ) {
-				$feed_item = new LVJM_Json_Item( $array_feed[ $current_item ] );
-				$feed_item->init( $this->params, $this->feed_infos );
+                                );
+                        } else {
+                                // améliorer root selon paramètres / ou si null dans la config.
+                                if ( isset( $this->feed_infos->feed_item_path->node ) ) {
+                                        $root       = $this->feed_infos->feed_item_path->node;
+                                        $array_feed = $response_body['data'][ $root ];
+                                } else {
+                                        $root       = 0;
+                                        $array_feed = $response_body['data'];
+                                }
+                                $count_total_feed_items = count( $array_feed );
+                                $current_item           = 0;
+                                $page_end               = false;
+                        }
+                        while ( false === $page_end ) {
+                                $feed_item = new LVJM_Json_Item( $array_feed[ $current_item ] );
+                                $feed_item->init( $this->params, $this->feed_infos );
                                 if ( $feed_item->is_valid() ) {
                                         $video_id   = $feed_item->get_id();
                                         $video_data = (array) $feed_item->get_data_for_json( $count_valid_feed_items );
@@ -514,22 +544,21 @@ class LVJM_Search_Videos {
                                 } else {
                                         $videos_details[] = array(
                                                 'id'       => $feed_item->get_id(),
-						'response' => 'Invalid',
-					);
-					++$counters['invalid_videos'];
-				}
+                                                'response' => 'Invalid',
+                                        );
+                                        ++$counters['invalid_videos'];
+                                }
                                 if ( $current_item >= ( $count_total_feed_items - 1 ) ) {
                                         $page_end = true;
                                         ++$current_page;
-                                        if ( '' === $paged || ( null !== $total_pages && $current_page > $total_pages ) ) {
+                                        if ( '' === $paged ) {
                                                 $end = true;
                                         }
                                 }
                                 ++$current_item;
                         }
                 }
-
-		unset( $array_feed );
+                unset( $array_feed );
 		$this->searched_data = array(
 			'videos_details' => $videos_details,
 			'counters'       => $counters,
