@@ -175,12 +175,37 @@ class LVJM_Search_Videos {
             $this->feed_url
         );
 
-        if ( '' !== $psid && false === stripos( $this->feed_url, 'psid=' ) ) {
-                $this->feed_url .= ( strpos( $this->feed_url, '?' ) === false ? '?' : '&' ) . 'psid=' . rawurlencode( $psid );
+        $query_args = array();
+        $parsed_url = wp_parse_url( $this->feed_url );
+        if ( false !== $parsed_url ) {
+                if ( isset( $parsed_url['query'] ) ) {
+                        parse_str( $parsed_url['query'], $query_args );
+                }
+
+                if ( '' !== $psid ) {
+                        $query_args['psid'] = $psid;
+                }
+
+                if ( '' !== $access_key ) {
+                        unset( $query_args['accesskey'] );
+                        $query_args['accessKey'] = $access_key;
+                }
+
+                if ( ! empty( $query_args ) ) {
+                        $parsed_url['query'] = http_build_query( $query_args, '', '&', PHP_QUERY_RFC3986 );
+                } else {
+                        unset( $parsed_url['query'] );
+                }
+
+                $this->feed_url = $this->unparse_url( $parsed_url );
         }
 
-        if ( '' !== $access_key && false === stripos( $this->feed_url, 'accesskey=' ) ) {
-                $this->feed_url .= ( strpos( $this->feed_url, '?' ) === false ? '?' : '&' ) . 'accessKey=' . rawurlencode( $access_key );
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                error_log( '[WPS-LiveJasmin] Feed URL credentials applied: ' . print_r( array(
+                        'psid'      => isset( $query_args['psid'] ) ? $query_args['psid'] : '',
+                        'accessKey' => isset( $query_args['accessKey'] ) ? substr( $query_args['accessKey'], 0, 5 ) . '...' : '',
+                ), true ) );
+                error_log( '[WPS-LiveJasmin] Feed URL after credential enforcement: ' . $this->feed_url );
         }
 
         // Append performer filter if provided
