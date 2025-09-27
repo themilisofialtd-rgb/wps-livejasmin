@@ -159,6 +159,9 @@ class LVJM_Search_Videos {
                 error_log( '[WPS-LiveJasmin] Using PSID=' . $psid . ' AccessKey=' . substr( $access_key, 0, 5 ) . '...' );
         }
 
+        $category_tag         = isset( $this->params['cat_s'] ) ? (string) $this->params['cat_s'] : '';
+        $category_tag_encoded = rawurlencode( $category_tag );
+
         $this->feed_url = str_replace(
             [
                 '<%$this->params["cat_s"]%>',
@@ -167,7 +170,7 @@ class LVJM_Search_Videos {
                 '<%get_partner_option("accessKey")%>'
             ],
             [
-                isset($this->params['cat_s']) ? $this->params['cat_s'] : '',
+                $category_tag_encoded,
                 $psid,
                 $access_key,
                 $access_key
@@ -209,9 +212,9 @@ class LVJM_Search_Videos {
         }
 
         // Append performer filter if provided
-        if ( isset($this->params['performer']) && !empty($this->params['performer']) ) {
-            $name = urlencode($this->params['performer']);
-            $this->feed_url .= '&forcedPerformers[]=' . $name;
+        if ( isset( $this->params['performer'] ) && ! empty( $this->params['performer'] ) ) {
+            $name = rawurlencode( $this->params['performer'] );
+            $this->feed_url .= '&forcedPerformers=' . $name;
         }
 
 					if ( ! $this->feed_url ) {
@@ -306,10 +309,10 @@ class LVJM_Search_Videos {
 				$new_query['sexualOrientation'] = 'shemale';
 			}
 		}
-		$parsed_url['query'] = http_build_query( $new_query );
-		$feed_url            = $this->unparse_url( $parsed_url );
-		return $feed_url;
-	}
+                $parsed_url['query'] = http_build_query( $new_query, '', '&', PHP_QUERY_RFC3986 );
+                $feed_url            = $this->unparse_url( $parsed_url );
+                return $feed_url;
+        }
 
 	/**
 	 * Unparse a parsed url.

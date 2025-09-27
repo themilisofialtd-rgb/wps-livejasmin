@@ -58,6 +58,14 @@ function lvjm_search_videos( $params = '' ) {
                 }
             }
 
+            $log_count = 0;
+            if ( is_array( $new_videos ) ) {
+                $log_count = count( $new_videos );
+            } elseif ( is_object( $new_videos ) ) {
+                $log_count = count( (array) $new_videos );
+            }
+            error_log( sprintf( '[WPS-LiveJasmin] Category: %s — count: %d', $category_id, $log_count ) );
+
             foreach ( (array) $new_videos as $video_item ) {
                 $video_id = null;
                 if ( is_array( $video_item ) ) {
