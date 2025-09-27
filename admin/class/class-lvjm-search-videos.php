@@ -451,8 +451,23 @@ class LVJM_Search_Videos {
 	 */
         private function get_partner_feed_infos( $partner_feed_item ) {
                 $saved_partner_options = WPSCORE()->get_product_option( 'LVJM', $this->params['partner']['id'] . '_options' );
-                $context               = array(
-                        'partner_options' => is_array( $saved_partner_options ) ? $saved_partner_options : array(),
+                $saved_partner_options = is_array( $saved_partner_options ) ? $saved_partner_options : array();
+
+                $psid_data       = lvjm_resolve_partner_credential( $saved_partner_options, 'psid', 'PSID', 'PSID' );
+                $access_key_data = lvjm_resolve_partner_credential( $saved_partner_options, 'accesskey', 'accessKey', 'Access Key' );
+
+                if ( '' !== $psid_data['value'] ) {
+                        $saved_partner_options['psid'] = $psid_data['value'];
+                        $saved_partner_options['PSID'] = $psid_data['value'];
+                }
+
+                if ( '' !== $access_key_data['value'] ) {
+                        $saved_partner_options['accesskey'] = $access_key_data['value'];
+                        $saved_partner_options['accessKey'] = $access_key_data['value'];
+                }
+
+                $context = array(
+                        'partner_options' => $saved_partner_options,
                         'params'          => $this->params,
                 );
 
