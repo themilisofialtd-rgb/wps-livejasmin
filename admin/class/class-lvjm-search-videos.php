@@ -101,7 +101,9 @@ class LVJM_Search_Videos {
         public function __construct( $params ) {
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
                 error_log( '[WPS-LiveJasmin] class-lvjm-search-videos.php constructor called' );
-                error_log( '[WPS-LiveJasmin] Search Param cat_s: ' . ( isset( $params['cat_s'] ) ? print_r( $params['cat_s'], true ) : '' ) );
+                $category_debug  = isset( $params['cat_s'] ) ? self::format_debug_value( $params['cat_s'] ) : 'N/A';
+                $performer_debug = isset( $params['performer'] ) ? self::format_debug_value( $params['performer'] ) : 'N/A';
+                error_log( sprintf( '[WPS-LiveJasmin] Search Params cat_s: %s | performer: %s', $category_debug, $performer_debug ) );
         }
                 global $wp_version;
                 $this->wp_version = $wp_version;
@@ -124,10 +126,12 @@ class LVJM_Search_Videos {
                 );
 
                 $base64_params = base64_encode( wp_json_encode( $api_params ) );
-        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( '[WPS-LiveJasmin] API Params: ' . print_r( $api_params, true ) );
-                error_log( '[WPS-LiveJasmin] API URL: ' . WPSCORE()->get_api_url( 'lvjm/get_feed', $base64_params ) );
-        }
+                if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                        error_log( '[WPS-LiveJasmin] API Params: ' . print_r( $api_params, true ) );
+                        $category_debug  = isset( $params['cat_s'] ) ? self::format_debug_value( $params['cat_s'] ) : 'N/A';
+                        $performer_debug = isset( $params['performer'] ) ? self::format_debug_value( $params['performer'] ) : 'N/A';
+                        error_log( sprintf( '[WPS-LiveJasmin] API URL: %s | cat_s: %s | performer: %s', WPSCORE()->get_api_url( 'lvjm/get_feed', $base64_params ), $category_debug, $performer_debug ) );
+                }
 
                 $response = wp_remote_get( WPSCORE()->get_api_url( 'lvjm/get_feed', $base64_params ), $args );
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
@@ -356,15 +360,17 @@ class LVJM_Search_Videos {
 
 		$array_found_ids = array();
 
-		while ( false === $end ) {
+                while ( false === $end ) {
 
-			if ( '' !== $paged ) {
-					$this->feed_url = $root_feed_url . $paged . $current_page;
-			}
+                        if ( '' !== $paged ) {
+                                        $this->feed_url = $root_feed_url . $paged . $current_page;
+                        }
 
-        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( '[WPS-LiveJasmin] Final feed URL used: ' . $this->feed_url );
-        }
+                        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                                $category_debug  = isset( $this->params['cat_s'] ) ? self::format_debug_value( $this->params['cat_s'] ) : 'N/A';
+                                $performer_debug = isset( $this->params['performer'] ) ? self::format_debug_value( $this->params['performer'] ) : 'N/A';
+                                error_log( sprintf( '[WPS-LiveJasmin] Final feed URL used: %s | cat_s: %s | performer: %s', $this->feed_url, $category_debug, $performer_debug ) );
+                        }
 			$response = wp_remote_get( $this->feed_url, $args );
 
 			if ( is_wp_error( $response ) ) {
@@ -443,6 +449,11 @@ class LVJM_Search_Videos {
                                                                 'id'       => $video_id,
                                                                 'response' => 'Already imported',
                                                         );
+                                                        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                                                                $category_debug  = isset( $this->params['cat_s'] ) ? self::format_debug_value( $this->params['cat_s'] ) : 'N/A';
+                                                                $performer_debug = isset( $this->params['performer'] ) ? self::format_debug_value( $this->params['performer'] ) : 'N/A';
+                                                                error_log( sprintf( '[WPS-LiveJasmin] Existing video skipped - ID: %s | category: %s | performer: %s', $video_id, $category_debug, $performer_debug ) );
+                                                        }
                                                         ++$counters['existing_videos'];
                                                         break;
                                                 case 'removed':
@@ -506,6 +517,25 @@ class LVJM_Search_Videos {
                 );
 
                 return LVJM_Placeholder_Parser::parse( $partner_feed_item, $context );
+        }
+
+        /**
+         * Format a value for debug logging.
+         *
+         * @since 1.0.0
+         *
+         * @param mixed $value The value to format.
+         * @return string
+         */
+        private static function format_debug_value( $value ) {
+                if ( is_array( $value ) ) {
+                        $value = array_filter( array_map( 'trim', array_map( 'strval', $value ) ) );
+                        $value = implode( ', ', $value );
+                }
+
+                $value = trim( (string) $value );
+
+                return '' !== $value ? $value : 'N/A';
         }
 
 	/**
