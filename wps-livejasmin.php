@@ -762,43 +762,63 @@ if ( ! function_exists( 'lvjm_get_straight_category_slugs' ) ) {
                         return $cached_categories;
                 }
 
-                $straight_categories = array(
-                        '69','Above Average','Amateur','Anal','Angry','Asian','Ass','Ass To mouth','Athletic','Auburn Hair',
-                        'Babe','Bald','Ball Sucking','Bathroom','Bbc','BBW','Bdsm','Bed','Big Ass','Big Boobs',
-                        'Big Booty','Big Breasts','Big Cock','Big Tits','Bizarre','Black Eyes','Black Girl','Black Hair',
-                        'Blonde','Blond Hair','Blowjob','Blue Eyes','Blue Hair','Bondage','Boots','Booty','Bossy',
-                        'Brown Eyes','Brown Hair','Brunette','Butt Plug','Cam Girl','Cam Porn','Cameltoe','Celebrity',
-                        'Cfnm','Cheerleader','Clown Hair','Cock','College Girl','Cop','Cosplay','Cougar','Couple',
-                        'Cowgirl','Creampie','Crew Cut','Cum','Cum On Tits','Cumshot','Curious','Cut','Cute','Dance',
-                        'Deepthroat','Dilde','Dirty','Doctor','Doggy','Domination','Double Penetration','Ebony','Erotic',
-                        'Eye Contact','Facesitting','Facial','Fake Tits','Fat Ass','Fetish','Fingering','Fire Red Hair',
-                        'Fishnet','Fisting','Flirting','Foot Sex','Footjob','Fuck','Gag','Gaping','Gilf','Girl',
-                        'Glamour','Glasses','Green Eyes','Grey Eyes','Group','Gym','Hairy','Handjob','Hard Cock','Hd',
-                        'High Heels','Homemade','Homy','Hot','Hot Flirt','Housewife','Huge Cock','Huge Tits','Innocent',
-                        'Interracial','Intim Piercing','Jeans','Kitchen','Ladyboy','Large Build','Latex','Latin','Latina',
-                        'Leather','Lesbian','Lick','Lingerie','Live Sex','Long Hair','Long Nails','Machine','Maid',
-                        'Massage','Masturbation','Mature','Milf','Missionary','Misstress','Moaning','Muscular','Muslim',
-                        'Naked','Nasty','Natural Tits','Normal Cock','Normal Tits','Nurse','Nylon','Office','Oiled',
-                        'Orange Hair','Orgasm','Orgy','Outdoor','Party','Pawg','Petite','Piercing','Pink Hair','Pissing',
-                        'Pool','Pov','Pregnant','Princess','Public','punish','Pussy','Pvc','Quicky','Redhead',
-                        'Remote Toy','Reverse Cowgirl','Riding','Rimjob','Roleplay','Romantic','Room','Rough','Schoolgirl',
-                        'Scissoring','Scream','Secretary','Sensual','Sextoy','Sexy','Shaved','Short Girl','Short Hair',
-                        'Shoulder Lenght Hair','Shy','Skinny','Slave','Sloppy','Slutty','Small Ass','Small Cock',
-                        'Smoking','Solo','Sologirl','squirt','Stockings','Strap On','Stretching','Striptease','Stroking',
-                        'Suck','Swallow','Tall','Tattoo','Teacher','Teasing','Teen','Treesome','Tight','Tiny Tits',
-                        'Titjob','Toy','Trimmed','Uniform','Virgin','Watching','Wet','White','Lesbian'
-                );
-
                 $cached_categories = array();
 
-                foreach ( $straight_categories as $category ) {
-                        $normalized = lvjm_normalize_category_slug( $category );
+                if ( ! function_exists( 'LVJM' ) ) {
+                        return $cached_categories;
+                }
 
-                        if ( '' === $normalized ) {
+                $ordered_categories = LVJM()->get_ordered_categories();
+
+                foreach ( (array) $ordered_categories as $category_group ) {
+                        if ( ! is_array( $category_group ) ) {
                                 continue;
                         }
 
-                        $cached_categories[ $normalized ] = $category;
+                        $group_id   = isset( $category_group['id'] ) ? (string) $category_group['id'] : '';
+                        $group_name = isset( $category_group['name'] ) ? trim( (string) $category_group['name'] ) : '';
+
+                        $is_straight_group = ( 'optgroup' === $group_id && '' !== $group_name && 0 === strcasecmp( 'Straight', $group_name ) );
+
+                        if ( $is_straight_group ) {
+                                foreach ( (array) $category_group['sub_cats'] as $sub_cat ) {
+                                        if ( ! is_array( $sub_cat ) ) {
+                                                continue;
+                                        }
+
+                                        $category_name = isset( $sub_cat['name'] ) ? trim( (string) $sub_cat['name'] ) : '';
+
+                                        if ( '' === $category_name ) {
+                                                continue;
+                                        }
+
+                                        $normalized = lvjm_normalize_category_slug( $category_name );
+
+                                        if ( '' === $normalized ) {
+                                                continue;
+                                        }
+
+                                        $cached_categories[ $normalized ] = $category_name;
+                                }
+                        } elseif ( 'optgroup' !== $group_id && '' !== $group_name ) {
+                                // Handle flat category definitions (no optgroup) if present.
+                                if ( 'all_straight' === $group_id ) {
+                                        continue;
+                                }
+
+                                $normalized = lvjm_normalize_category_slug( $group_name );
+
+                                if ( '' === $normalized ) {
+                                        continue;
+                                }
+
+                                // Skip obvious non-straight categories that include orientation suffixes.
+                                if ( false !== stripos( $group_name, '(gay' ) || false !== stripos( $group_name, '(shemale' ) ) {
+                                        continue;
+                                }
+
+                                $cached_categories[ $normalized ] = $group_name;
+                        }
                 }
 
                 return $cached_categories;

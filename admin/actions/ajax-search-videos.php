@@ -26,8 +26,6 @@ function lvjm_search_videos( $params = '' ) {
     $searched_data  = array();
     $performer      = isset( $params['performer'] ) ? sanitize_text_field( (string) $params['performer'] ) : '';
     $result_message = '';
-    $last_category_label = '';
-    $last_category_slug  = '';
     $is_multi  = isset( $params['multi_category_search'] ) && '1' === (string) $params['multi_category_search'];
     $multi_category_meta = array(
         'active'        => false,
@@ -47,19 +45,31 @@ function lvjm_search_videos( $params = '' ) {
         }
 
         $multi_category_meta = array(
-            'active'               => true,
+            'active'               => $total_categories > 0,
             'current_category'     => '',
             'current_category_slug'=> '',
             'next_index'           => $start_index,
             'has_more'             => false,
             'count'                => 0,
-            'completed'            => $start_index >= $total_categories,
+            'imported_count'       => 0,
+            'completed'            => $total_categories <= 0 || $start_index >= $total_categories,
             'auto_continue'        => false,
             'message'              => '',
         );
 
-        for ( $index = $start_index; $index < $total_categories; $index++ ) {
-            $normalized_slug = $category_slugs[ $index ];
+        if ( 0 === $total_categories ) {
+            $result_message = esc_html__( 'No straight categories available.', 'lvjm_lang' );
+            $multi_category_meta['message'] = $result_message;
+            $multi_category_meta['active']  = false;
+        } elseif ( $start_index >= $total_categories ) {
+            $multi_category_meta['next_index'] = $total_categories;
+            $multi_category_meta['has_more']   = false;
+            $multi_category_meta['completed']  = true;
+            $multi_category_meta['active']     = false;
+            $result_message = esc_html__( 'All straight categories have been processed.', 'lvjm_lang' );
+            $multi_category_meta['message'] = $result_message;
+        } else {
+            $normalized_slug = $category_slugs[ $start_index ];
             $category_id     = $straight_categories[ $normalized_slug ];
 
             $loop_params = $params;
@@ -67,9 +77,6 @@ function lvjm_search_videos( $params = '' ) {
             $raw_category_id   = $category_id;
             $search_category   = $raw_category_id;
             $is_keyword_search = false;
-
-            $last_category_label = $raw_category_id;
-            $last_category_slug  = $normalized_slug;
 
             if ( false !== strpos( $search_category, 'kw::' ) ) {
                 $is_keyword_search = true;
@@ -143,36 +150,36 @@ function lvjm_search_videos( $params = '' ) {
                 error_log( sprintf( '[WPS-LiveJasmin] Brutal search → %s (%d videos)', $category_id, count( (array) $new_videos ) ) );
             }
 
-            if ( ! empty( $videos_for_category ) ) {
-                $videos = $videos_for_category;
-                $multi_category_meta['current_category']      = $raw_category_id;
-                $multi_category_meta['current_category_slug'] = $normalized_slug;
-                $multi_category_meta['count']                 = count( $videos_for_category );
-                $multi_category_meta['next_index']            = $index + 1;
-                $multi_category_meta['has_more']              = $multi_category_meta['next_index'] < $total_categories;
-                $multi_category_meta['completed']             = ! $multi_category_meta['has_more'];
-                $result_message                               = sprintf( '%1$s — showing %2$d video(s).', $raw_category_id, $multi_category_meta['count'] );
-                $multi_category_meta['message']               = $result_message;
-                break;
+            $category_count  = count( $videos_for_category );
+            $imported_count  = 0;
+            foreach ( $videos_for_category as $video_item ) {
+                if ( is_array( $video_item ) ) {
+                    if ( ! empty( $video_item['already_imported'] ) ) {
+                        ++$imported_count;
+                    }
+                } elseif ( is_object( $video_item ) && ! empty( $video_item->already_imported ) ) {
+                    ++$imported_count;
+                }
             }
 
-            $multi_category_meta['next_index'] = $index + 1;
-            $result_message = sprintf( 'No results found in %s.', $raw_category_id );
-            $multi_category_meta['message'] = $result_message;
-        }
-
-        if ( empty( $videos ) ) {
-            $multi_category_meta['next_index'] = max( $multi_category_meta['next_index'], $total_categories );
-            $multi_category_meta['has_more']   = false;
-            $multi_category_meta['count']      = 0;
-            $multi_category_meta['completed']  = true;
-            $multi_category_meta['auto_continue'] = false;
-            if ( '' !== $last_category_label ) {
-                $result_message = sprintf( 'No results found in %s.', $last_category_label );
-                $multi_category_meta['current_category']      = $last_category_label;
-                $multi_category_meta['current_category_slug'] = $last_category_slug;
-                $multi_category_meta['message']               = $result_message;
+            if ( $category_count > 0 ) {
+                $imported_suffix = $imported_count > 0 ? sprintf( ' (%d already imported)', $imported_count ) : '';
+                $result_message  = sprintf( '%1$s — %2$d video(s)%3$s.', $raw_category_id, $category_count, $imported_suffix );
+            } else {
+                $result_message = sprintf( 'No results found in %s.', $raw_category_id );
             }
+
+            $videos = $videos_for_category;
+
+            $multi_category_meta['current_category']      = $raw_category_id;
+            $multi_category_meta['current_category_slug'] = $normalized_slug;
+            $multi_category_meta['next_index']            = $start_index + 1;
+            $multi_category_meta['has_more']              = $multi_category_meta['next_index'] < $total_categories;
+            $multi_category_meta['completed']             = ! $multi_category_meta['has_more'];
+            $multi_category_meta['count']                 = $category_count;
+            $multi_category_meta['imported_count']        = $imported_count;
+            $multi_category_meta['auto_continue']         = $multi_category_meta['has_more'];
+            $multi_category_meta['message']               = $result_message;
         }
     } else {
         if ( isset( $params['cat_s'] ) && ! isset( $params['cat_s_encoded'] ) ) {
@@ -196,7 +203,18 @@ function lvjm_search_videos( $params = '' ) {
         if ( '' !== $single_category ) {
             $count_videos   = is_array( $videos ) ? count( $videos ) : 0;
             if ( $count_videos > 0 ) {
-                $result_message = sprintf( '%1$s — showing %2$d video(s).', $single_category, $count_videos );
+                $imported_count = 0;
+                foreach ( (array) $videos as $video_item ) {
+                    if ( is_array( $video_item ) ) {
+                        if ( ! empty( $video_item['already_imported'] ) ) {
+                            ++$imported_count;
+                        }
+                    } elseif ( is_object( $video_item ) && ! empty( $video_item->already_imported ) ) {
+                        ++$imported_count;
+                    }
+                }
+                $imported_suffix = $imported_count > 0 ? sprintf( ' (%d already imported)', $imported_count ) : '';
+                $result_message  = sprintf( '%1$s — %2$d video(s)%3$s.', $single_category, $count_videos, $imported_suffix );
             } else {
                 $result_message = sprintf( 'No results found in %s.', $single_category );
             }
@@ -252,7 +270,7 @@ function lvjm_search_videos( $params = '' ) {
 
     if ( $multi_category_meta['active'] ) {
         $multi_category_meta['count'] = is_array( $videos ) ? count( $videos ) : 0;
-        if ( $multi_category_meta['count'] <= 0 && $multi_category_meta['has_more'] && ! $multi_category_meta['completed'] ) {
+        if ( $multi_category_meta['has_more'] ) {
             $multi_category_meta['auto_continue'] = true;
         } else {
             $multi_category_meta['auto_continue'] = false;
