@@ -151,19 +151,37 @@ class LVJM_Search_Videos {
 					$this->feed_url   = $this->get_partner_feed_infos( $this->feed_infos->feed_url->data );
 
         // Replace template variables in feed_url
+        $saved_partner_options = WPSCORE()->get_product_option( 'LVJM', $this->params['partner']['id'] . '_options' );
+        $psid                  = isset( $saved_partner_options['psid'] ) ? sanitize_text_field( (string) $saved_partner_options['psid'] ) : '';
+        $access_key            = isset( $saved_partner_options['accesskey'] ) ? sanitize_text_field( (string) $saved_partner_options['accesskey'] ) : '';
+
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                error_log( '[WPS-LiveJasmin] Using PSID=' . $psid . ' AccessKey=' . substr( $access_key, 0, 5 ) . '...' );
+        }
+
         $this->feed_url = str_replace(
             [
                 '<%$this->params["cat_s"]%>',
                 '<%get_partner_option("psid")%>',
-                '<%get_partner_option("accesskey")%>'
+                '<%get_partner_option("accesskey")%>',
+                '<%get_partner_option("accessKey")%>'
             ],
             [
                 isset($this->params['cat_s']) ? $this->params['cat_s'] : '',
-                get_option('wps_lj_psid'),
-                get_option('wps_lj_accesskey')
+                $psid,
+                $access_key,
+                $access_key
             ],
             $this->feed_url
         );
+
+        if ( '' !== $psid && false === stripos( $this->feed_url, 'psid=' ) ) {
+                $this->feed_url .= ( strpos( $this->feed_url, '?' ) === false ? '?' : '&' ) . 'psid=' . rawurlencode( $psid );
+        }
+
+        if ( '' !== $access_key && false === stripos( $this->feed_url, 'accesskey=' ) ) {
+                $this->feed_url .= ( strpos( $this->feed_url, '?' ) === false ? '?' : '&' ) . 'accessKey=' . rawurlencode( $access_key );
+        }
 
         // Append performer filter if provided
         if ( isset($this->params['performer']) && !empty($this->params['performer']) ) {
