@@ -48,7 +48,11 @@ function lvjm_search_videos( $params = '' ) {
             if ( false === $new_videos ) {
                 $search_videos = new LVJM_Search_Videos( $loop_params );
                 if ( $search_videos->has_errors() ) {
-                    $errors     = array_merge( $errors, (array) $search_videos->get_errors() );
+                    $search_errors = (array) $search_videos->get_errors();
+                    if ( isset( $search_errors['code'] ) || isset( $search_errors['message'] ) || isset( $search_errors['solution'] ) ) {
+                        $search_errors = array( $search_errors );
+                    }
+                    $errors     = array_merge( $errors, $search_errors );
                     $new_videos = array();
                     wp_cache_set( $cache_key, $new_videos, $cache_group, MINUTE_IN_SECONDS );
                 } else {
@@ -85,7 +89,11 @@ function lvjm_search_videos( $params = '' ) {
     } else {
         $search_videos = new LVJM_Search_Videos( $params );
         if ( $search_videos->has_errors() ) {
-            $errors = (array) $search_videos->get_errors();
+            $search_errors = (array) $search_videos->get_errors();
+            if ( isset( $search_errors['code'] ) || isset( $search_errors['message'] ) || isset( $search_errors['solution'] ) ) {
+                $search_errors = array( $search_errors );
+            }
+            $errors = $search_errors;
         } else {
             $videos = (array) $search_videos->get_videos();
             $searched_data = $search_videos->get_searched_data();
