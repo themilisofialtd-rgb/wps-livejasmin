@@ -170,18 +170,28 @@ class LVJM_Search_Videos {
                                         $psid       = isset( $this->resolved_partner_credentials['psid'] ) ? $this->resolved_partner_credentials['psid'] : '';
                                         $access_key = isset( $this->resolved_partner_credentials['accesskey'] ) ? $this->resolved_partner_credentials['accesskey'] : '';
 
-                                        // Replace template variables in feed_url.
+                                        // Ensure partner credential placeholders are always replaced.
                                         $this->feed_url = str_replace(
                                                 array(
-                                                        '<%$this->params["cat_s"]%>',
                                                         '<%get_partner_option("psid")%>',
                                                         '<%get_partner_option("accesskey")%>',
                                                 ),
                                                 array(
-                                                        isset( $this->params['cat_s'] ) ? $this->params['cat_s'] : '',
                                                         $psid,
                                                         $access_key,
                                                 ),
+                                                $this->feed_url
+                                        );
+
+                                        if ( empty( $psid ) || empty( $access_key ) ) {
+                                                error_log( '[WPS-LiveJasmin ERROR] Missing PSID or AccessKey – cannot build feed URL.' );
+                                                return false;
+                                        }
+
+                                        // Replace template variables in feed_url.
+                                        $this->feed_url = str_replace(
+                                                '<%$this->params["cat_s"]%>',
+                                                isset( $this->params['cat_s'] ) ? $this->params['cat_s'] : '',
                                                 $this->feed_url
                                         );
 
@@ -192,7 +202,7 @@ class LVJM_Search_Videos {
                                         }
 
                                         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                                                error_log( '[WPS-LiveJasmin] Final feed URL: ' . $this->feed_url );
+                                                error_log( '[WPS-LiveJasmin] Final feed URL after replacements: ' . $this->feed_url );
                                         }
 
 					if ( ! $this->feed_url ) {
