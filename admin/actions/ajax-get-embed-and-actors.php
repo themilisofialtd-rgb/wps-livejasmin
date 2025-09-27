@@ -44,13 +44,8 @@ function lvjm_get_embed_and_actors( $params = '' ) {
         }
 
         $saved_partner_options = WPSCORE()->get_product_option( 'LVJM', 'livejasmin_options' );
-        $saved_partner_options = is_array( $saved_partner_options ) ? $saved_partner_options : array();
-
-        $psid_data       = lvjm_resolve_partner_credential( $saved_partner_options, 'psid', 'PSID', 'PSID' );
-        $access_key_data = lvjm_resolve_partner_credential( $saved_partner_options, 'accesskey', 'accessKey', 'Access Key' );
-
-        $psid       = $psid_data['value'];
-        $access_key = $access_key_data['value'];
+        $psid                  = isset( $saved_partner_options['psid'] ) ? sanitize_text_field( (string) $saved_partner_options['psid'] ) : '';
+        $access_key            = isset( $saved_partner_options['accesskey'] ) ? sanitize_text_field( (string) $saved_partner_options['accesskey'] ) : '';
         $primary_color         = str_replace( '#', '', xbox_get_field_value( 'lvjm-options', 'primary-color' ) );
         $label_color           = str_replace( '#', '', xbox_get_field_value( 'lvjm-options', 'label-color' ) );
         $client_ip             = '90.90.90.90';
