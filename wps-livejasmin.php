@@ -751,77 +751,21 @@ if ( ! function_exists( 'lvjm_normalize_category_slug' ) ) {
 
 if ( ! function_exists( 'lvjm_get_straight_category_slugs' ) ) {
         /**
-         * Retrieve normalized slugs for the predefined straight partner categories list.
+         * Retrieve normalized slugs for all straight partner categories.
          *
          * @return array
          */
         function lvjm_get_straight_category_slugs() {
-                static $cached_categories = null;
-
-                if ( null !== $cached_categories ) {
-                        return $cached_categories;
-                }
-
-                $cached_categories = array();
-
-                if ( ! function_exists( 'LVJM' ) ) {
-                        return $cached_categories;
-                }
-
-                $ordered_categories = LVJM()->get_ordered_categories();
-
-                foreach ( (array) $ordered_categories as $category_group ) {
-                        if ( ! is_array( $category_group ) ) {
-                                continue;
-                        }
-
-                        $group_id   = isset( $category_group['id'] ) ? (string) $category_group['id'] : '';
-                        $group_name = isset( $category_group['name'] ) ? trim( (string) $category_group['name'] ) : '';
-
-                        $is_straight_group = ( 'optgroup' === $group_id && '' !== $group_name && 0 === strcasecmp( 'Straight', $group_name ) );
-
-                        if ( $is_straight_group ) {
-                                foreach ( (array) $category_group['sub_cats'] as $sub_cat ) {
-                                        if ( ! is_array( $sub_cat ) ) {
-                                                continue;
-                                        }
-
-                                        $category_name = isset( $sub_cat['name'] ) ? trim( (string) $sub_cat['name'] ) : '';
-
-                                        if ( '' === $category_name ) {
-                                                continue;
-                                        }
-
-                                        $normalized = lvjm_normalize_category_slug( $category_name );
-
-                                        if ( '' === $normalized ) {
-                                                continue;
-                                        }
-
-                                        $cached_categories[ $normalized ] = $category_name;
+                $categories = array();
+                if ( function_exists( 'LVJM' ) ) {
+                        $raw_categories = LVJM()->get_partner_categories();
+                        if ( isset( $raw_categories['optgroup::Straight'] ) && is_array( $raw_categories['optgroup::Straight'] ) ) {
+                                foreach ( array_keys( $raw_categories['optgroup::Straight'] ) as $category_id ) {
+                                        $categories[ lvjm_normalize_category_slug( $category_id ) ] = $category_id;
                                 }
-                        } elseif ( 'optgroup' !== $group_id && '' !== $group_name ) {
-                                // Handle flat category definitions (no optgroup) if present.
-                                if ( 'all_straight' === $group_id ) {
-                                        continue;
-                                }
-
-                                $normalized = lvjm_normalize_category_slug( $group_name );
-
-                                if ( '' === $normalized ) {
-                                        continue;
-                                }
-
-                                // Skip obvious non-straight categories that include orientation suffixes.
-                                if ( false !== stripos( $group_name, '(gay' ) || false !== stripos( $group_name, '(shemale' ) ) {
-                                        continue;
-                                }
-
-                                $cached_categories[ $normalized ] = $group_name;
                         }
                 }
-
-                return $cached_categories;
+                return $categories;
         }
 }
 

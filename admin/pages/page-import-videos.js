@@ -90,6 +90,7 @@ function LVJM_pageImportVideos() {
 
                 partnerCatsLoading: false,
                 partnerCats: [],
+                selectedPartnerCats: '',
 
                 // allPartnersCounter: 0,
                 filteredPartnersCounter: 0,
@@ -106,7 +107,6 @@ function LVJM_pageImportVideos() {
 
                 //videos
                 videos: [],
-                resultMessage: '',
                 searchingVideos: false,
                 videosHasBeenSearched: false,
                 videosSearchedErrors: {},
@@ -124,24 +124,7 @@ function LVJM_pageImportVideos() {
                 videoFilterKW: '',
                 videosFilters: [],
                 importingVideos: false,
-                savedCheckedVideosCounter: 0,
-
-                multiCategory: {
-                    active: false,
-                    awaitingUser: false,
-                    nextIndex: 0,
-                    hasMore: false,
-                    currentCategory: '',
-                    currentCategorySlug: '',
-                    lastCount: 0,
-                    completed: false,
-                    autoContinue: false,
-                    message: ''
-                },
-                lastSearch: {
-                    method: 'create',
-                    feedId: null
-                }
+                savedCheckedVideosCounter: 0
             },
             computed: {
                 siteIsHttps: function () {
@@ -349,7 +332,7 @@ function LVJM_pageImportVideos() {
             methods: {
                 loadPartnerCats: function () {
                     this.partnerCatsLoading = true;
-
+                    
                     this.$http.post(
 
                             LVJM_import_videos.ajax.url, {
@@ -374,24 +357,11 @@ function LVJM_pageImportVideos() {
                             }, 0);
                         });
                 },
-                resetMultiCategoryState: function () {
-                    this.multiCategory.active = false;
-                    this.multiCategory.awaitingUser = false;
-                    this.multiCategory.nextIndex = 0;
-                    this.multiCategory.hasMore = false;
-                    this.multiCategory.currentCategory = '';
-                    this.multiCategory.currentCategorySlug = '';
-                    this.multiCategory.lastCount = 0;
-                    this.multiCategory.completed = false;
-                    this.multiCategory.autoContinue = false;
-                    this.multiCategory.message = '';
-                },
                 resetSearch: function () {
                     this.videos = [];
                     this.searchFromFeed = false;
                     this.isTestSearch = false;
                     this.videosHasBeenSearched = false;
-                    this.resultMessage = '';
 
                     setTimeout(function () {
                         jQuery('#partner_select').selectpicker('refresh');
@@ -403,10 +373,6 @@ function LVJM_pageImportVideos() {
                     this.selectedPostsStatus = '';
 
                     this.searchedData = {};
-
-                    this.resetMultiCategoryState();
-                    this.lastSearch.method = 'create';
-                    this.lastSearch.feedId = null;
 
                     //change selected partner for the watcher
                     jQuery('#cat_wp_select').selectpicker('val', '0');
@@ -426,40 +392,25 @@ function LVJM_pageImportVideos() {
                     this.showSavedSearchesHelp = !this.showSavedSearchesHelp;
                     return;
                 },
-                searchVideos: function (method, feedId, isContinuation) {
+                searchVideos: function (method, feedId) {
 
-                    var continuing = !!isContinuation;
+                    if (this.searchBtnClass == 'disabled' && method != 'update') return;
 
-                    if (!continuing && this.searchBtnClass == 'disabled' && method != 'update') return;
-
-                    if (!continuing && method == 'update') window.scrollTo(0, jQuery('#search-top').offset().top - 25);
+                    if( method == 'update' ) window.scrollTo(0, jQuery('#search-top').offset().top - 25);
 
                     var cat_s = '';
                     var kw = '';
-                    var partner = '';
-                    var requestFeedId = feedId;
-                    var multiIndex = 0;
-                    var shouldAutoContinue = false;
+                    var partnerId = '';
 
-                    if (!continuing) {
-                        this.lastSearch.method = method;
-                        this.lastSearch.feedId = typeof feedId === 'undefined' ? null : feedId;
-                        this.videos = [];
-                        this.videosSearchedErrors = {};
-                        this.videosHasBeenSearched = false;
-                        this.resetMultiCategoryState();
-                    } else {
-                        method = this.lastSearch.method;
-                        requestFeedId = this.lastSearch.feedId;
-                    }
-
+                    //reset searching states
+                    this.videos = [];
                     this.searchingVideos = true;
-                    this.multiCategory.awaitingUser = false;
+                    this.videosHasBeenSearched = false;
 
-                    if (requestFeedId === undefined || requestFeedId === null) {
+                    if (feedId === undefined) {
 
-                        cat_s = this.selectedKW !== '' ? this.selectedKW.toLowerCase().split(' ').join(this.selectedPartnerObject.filters.search_sep).trim() : this.selectedCat;
-                        kw = this.selectedKW !== '' ? 1 : 0;
+                        cat_s = this.selectedKW != '' ? this.selectedKW.toLowerCase().split(' ').join(this.selectedPartnerObject.filters.search_sep).trim() : this.selectedCat;
+                        kw = this.selectedKW != '' ? 1 : 0;
                         partner = this.selectedPartnerObject;
 
                         jQuery('[data-id="sort_partners"]').prop("disabled", true);
@@ -469,10 +420,10 @@ function LVJM_pageImportVideos() {
                     } else {
 
                         var feed = lodash.find(this.data.feeds, function (f) {
-                            return f.id == requestFeedId
+                            return f.id == feedId
                         });
 
-                        this.updatingFeedId = requestFeedId;
+                        this.updatingFeedId = feedId;
 
                         cat_s = feed.partner_cat;
                         kw = feed.partner_cat.indexOf('kw::') >= 0 ? 1 : 0;
@@ -494,53 +445,25 @@ function LVJM_pageImportVideos() {
 
                     if (method == 'update') {
                         this.searchFromFeed = true;
-                    } else if (!continuing) {
-                        this.searchFromFeed = false;
                     }
 
-                    var isMultiSearch = (cat_s === 'all_straight' || this.selectedCat === 'all_straight' || this.multiCategory.active);
+                    //reset tooltips states
+                    //jQuery('[rel=tooltip]').tooltip('hide');
 
-                    if (!continuing && isMultiSearch) {
-                        this.multiCategory.active = true;
-                        this.multiCategory.awaitingUser = false;
-                        this.multiCategory.nextIndex = 0;
-                        this.multiCategory.hasMore = false;
-                        this.multiCategory.currentCategory = '';
-                        this.multiCategory.currentCategorySlug = '';
-                        this.multiCategory.lastCount = 0;
-                        this.multiCategory.completed = false;
-                        this.multiCategory.autoContinue = false;
-                    }
-
-                    if (this.multiCategory.active) {
-                        isMultiSearch = true;
-                        multiIndex = continuing ? this.multiCategory.nextIndex : 0;
-                    } else {
-                        multiIndex = 0;
-                    }
-
-                    if (requestFeedId === null) {
-                        requestFeedId = undefined;
-                    }
-
-                    if (!continuing) {
-                        this.resultMessage = '';
-                    }
-
+                    
                     this.$http.post(
-
+    
                             LVJM_import_videos.ajax.url, {
                                 action: 'lvjm_search_videos',
                                 cat_s: cat_s,
-                                feed_id: requestFeedId,
+                                feed_id: feedId,
                                 from: 'manual',
                                 kw: kw,
                                 limit: this.data.videosLimit,
                                 method: method,
-                                multi_category_search: isMultiSearch ? 1 : 0,
-                                multi_category_index: isMultiSearch ? multiIndex : 0,
+                                multi_category_search: this.selectedPartnerCats === 'all_straight' ? 1 : 0,
                                 nonce: LVJM_import_videos.ajax.nonce,
-                                original_cat_s: cat_s ? cat_s.replace('&', '%%') : '',
+                                original_cat_s: cat_s.replace('&', '%%'),
                                 partner: partner,
                                 performer: this.selectedPerformer
                             }, {
@@ -548,74 +471,38 @@ function LVJM_pageImportVideos() {
                             })
                         .then(function (response) {
                             var videos = this.videos;
-                            shouldAutoContinue = false;
-                            this.resultMessage = response.body.result_message || '';
                             if (lodash.isEmpty(response.body.errors)) {
                                 this.searchedData = response.body.searched_data;
                                 lodash.each(response.body.videos, function (video) {
-                                    var exists = lodash.find(videos, function (existing) {
-                                        return existing.id === video.id;
-                                    });
-                                    if (!exists) {
-                                        videos.push({
-                                            id: video.id,
-                                            title: video.title,
-                                            thumb_url: video.thumb_url,
+                                    videos.push({
+                                        id: video.id,
+                                        title: video.title,
+                                        thumb_url: video.thumb_url,
 //                                        thumbs_urls: video.thumbs_urls.split(','),
-                                            thumbs_urls: video.thumbs_urls,
-                                            trailer_url: video.trailer_url,
-                                            desc: video.desc,
-                                            embed: video.embed,
-                                            tracking_url: video.tracking_url,
-                                            duration: video.duration,
-                                            quality: video.quality,
-                                            isHd: video.isHd,
-                                            uploader: video.uploader,
-                                            actors: video.actors,
-                                            tags: video.tags,
-                                            video_url: video.video_url,
-                                            partner_cat: video.partner_cat || cat_s,
-                                            checked: video.checked,
-                                            grabbed: !!video.grabbed,
-                                            already_imported: !!video.already_imported,
-                                            loading: {
-                                                removing: false
-                                            }
-                                        });
-                                    } else {
-                                        exists.checked = video.checked;
-                                        exists.grabbed = !!video.grabbed;
-                                        exists.already_imported = !!video.already_imported;
-                                    }
+                                        thumbs_urls: video.thumbs_urls,
+                                        trailer_url: video.trailer_url,
+                                        desc: video.desc,
+                                        embed: video.embed,
+                                        tracking_url: video.tracking_url,
+                                        duration: video.duration,
+                                        quality: video.quality,
+                                        isHd: video.isHd,
+                                        uploader: video.uploader,
+                                        actors: video.actors,
+                                        tags: video.tags,
+                                        video_url: video.video_url,
+                                        partner_cat: video.partner_cat || cat_s,
+                                        checked: video.checked,
+                                        grabbed: false,
+                                        loading: {
+                                            removing: false
+                                        }
+                                    });
                                 });
                             } else {
                                 this.videosSearchedErrors = response.body.errors;
                             }
-
-                            if (response.body.multi_category) {
-                                var meta = response.body.multi_category;
-                                if (meta.active || meta.completed || meta.has_more) {
-                                    this.multiCategory.active = !!meta.active && !meta.completed;
-                                    this.multiCategory.completed = !!meta.completed;
-                                    this.multiCategory.nextIndex = meta.next_index !== undefined ? meta.next_index : 0;
-                                    this.multiCategory.hasMore = !!meta.has_more;
-                                    this.multiCategory.currentCategory = meta.current_category || '';
-                                    this.multiCategory.currentCategorySlug = meta.current_category_slug || '';
-                                    this.multiCategory.lastCount = meta.count !== undefined ? meta.count : 0;
-                                    this.multiCategory.autoContinue = !!meta.auto_continue;
-                                    this.multiCategory.message = meta.message || '';
-                                    this.multiCategory.awaitingUser = this.multiCategory.hasMore && this.multiCategory.lastCount > 0 && !this.multiCategory.autoContinue;
-                                    if (!this.multiCategory.active && this.multiCategory.completed) {
-                                        this.multiCategory.hasMore = false;
-                                    }
-                                    shouldAutoContinue = this.multiCategory.autoContinue && lodash.isEmpty(response.body.errors);
-                                } else if (!continuing) {
-                                    this.resetMultiCategoryState();
-                                }
-                            } else if (!continuing) {
-                                this.resetMultiCategoryState();
-                            }
-
+                            delete errors;
                             delete response;
                             delete videos;
                             if (method == 'create') {
@@ -634,33 +521,7 @@ function LVJM_pageImportVideos() {
                         jQuery('[data-id="cat_s_select"]').prop("disabled", false);
                         jQuery('[data-id="partner_select"]').prop("disabled", false);
                         stickNav();
-                        if (shouldAutoContinue) {
-                            this.continueMultiCategorySearch();
-                        }
                     });
-                },
-                continueMultiCategorySearch: function () {
-                    if (!this.multiCategory.active) {
-                        return;
-                    }
-                    if (!this.multiCategory.hasMore) {
-                        this.stopMultiCategorySearch();
-                        return;
-                    }
-                    this.multiCategory.awaitingUser = false;
-                    this.searchVideos(this.lastSearch.method, this.lastSearch.feedId, true);
-                },
-                stopMultiCategorySearch: function () {
-                    this.multiCategory.awaitingUser = false;
-                    this.multiCategory.hasMore = false;
-                    this.multiCategory.active = false;
-                    this.multiCategory.autoContinue = false;
-                    this.multiCategory.completed = true;
-                    this.multiCategory.nextIndex = 0;
-                    this.multiCategory.currentCategory = '';
-                    this.multiCategory.currentCategorySlug = '';
-                    this.multiCategory.lastCount = 0;
-                    this.multiCategory.message = '';
                 },
                 updateDisplayType: function (displayType) {
                     this.displayType = displayType;
@@ -692,9 +553,6 @@ function LVJM_pageImportVideos() {
                         });
                 },
                 toggleVideo: function (index, from) {
-                    if (this.videos[index].grabbed) {
-                        return;
-                    }
                     this.videos[index].checked = !this.videos[index].checked;
                 },
                 toogleAllVideos: function () {
@@ -1056,9 +914,6 @@ function LVJM_pageImportVideos() {
                     this.videos = [];
                     this.videosHasBeenSearched = false;
                     if (!this.searchingVideos) {
-                        this.resetMultiCategoryState();
-                        this.lastSearch.method = 'create';
-                        this.lastSearch.feedId = null;
                         //reset selectecat field
                         this.selectedCat = '';
                         //reset selectedKW field
@@ -1071,11 +926,6 @@ function LVJM_pageImportVideos() {
                         this.selectedKW = '';
                         this.videos = [];
                         this.videosHasBeenSearched = false;
-                        if (!this.searchingVideos) {
-                            this.resetMultiCategoryState();
-                            this.lastSearch.method = 'create';
-                            this.lastSearch.feedId = null;
-                        }
                     }
                 },
                 selectedWPCat: function (newWpCat, oldWpCat) {
@@ -1092,11 +942,6 @@ function LVJM_pageImportVideos() {
                         this.selectedCat = '';
                         this.videos = [];
                         this.videosHasBeenSearched = false;
-                        if (!this.searchingVideos) {
-                            this.resetMultiCategoryState();
-                            this.lastSearch.method = 'create';
-                            this.lastSearch.feedId = null;
-                        }
                     }
                 }
             },

@@ -23,88 +23,19 @@ function lvjm_search_videos( $params = '' ) {
 
     $errors         = array();
     $videos         = array();
+    $seen_ids       = array();
     $searched_data  = array();
     $performer      = isset( $params['performer'] ) ? sanitize_text_field( (string) $params['performer'] ) : '';
-    $result_message = '';
     $is_multi  = isset( $params['multi_category_search'] ) && '1' === (string) $params['multi_category_search'];
-    $multi_category_meta = array(
-        'active'        => false,
-        'auto_continue' => false,
-        'message'       => '',
-    );
 
     if ( $is_multi ) {
         $straight_categories = lvjm_get_straight_category_slugs(); // slug => original id.
         $cache_group         = 'lvjm_search';
-        $category_slugs      = array_keys( $straight_categories );
-        $total_categories    = count( $category_slugs );
-        $start_index         = isset( $params['multi_category_index'] ) ? max( 0, (int) $params['multi_category_index'] ) : 0;
 
-        if ( $start_index > $total_categories ) {
-            $start_index = $total_categories;
-        }
-
-        $multi_category_meta = array(
-            'active'               => $total_categories > 0,
-            'current_category'     => '',
-            'current_category_slug'=> '',
-            'next_index'           => $start_index,
-            'has_more'             => false,
-            'count'                => 0,
-            'imported_count'       => 0,
-            'completed'            => $total_categories <= 0 || $start_index >= $total_categories,
-            'auto_continue'        => false,
-            'message'              => '',
-        );
-
-        if ( 0 === $total_categories ) {
-            $result_message = esc_html__( 'No straight categories available.', 'lvjm_lang' );
-            $multi_category_meta['message'] = $result_message;
-            $multi_category_meta['active']  = false;
-        } elseif ( $start_index >= $total_categories ) {
-            $multi_category_meta['next_index'] = $total_categories;
-            $multi_category_meta['has_more']   = false;
-            $multi_category_meta['completed']  = true;
-            $multi_category_meta['active']     = false;
-            $result_message = esc_html__( 'All straight categories have been processed.', 'lvjm_lang' );
-            $multi_category_meta['message'] = $result_message;
-        } else {
-            $normalized_slug = $category_slugs[ $start_index ];
-            $category_id     = $straight_categories[ $normalized_slug ];
-
-            $loop_params = $params;
-
-            $raw_category_id   = $category_id;
-            $search_category   = $raw_category_id;
-            $is_keyword_search = false;
-
-            if ( false !== strpos( $search_category, 'kw::' ) ) {
-                $is_keyword_search = true;
-                $search_category   = str_replace( 'kw::', '', $search_category );
-            }
-
-            $loop_params['cat_s']          = $search_category;
-            $loop_params['category']       = $search_category;
-            $loop_params['original_cat_s'] = str_replace( '&', '%%', $raw_category_id );
-            $loop_params['cat_s_encoded']  = rawurlencode( $search_category );
-
-            if ( $is_keyword_search ) {
-                $loop_params['kw']   = 1;
-                $loop_params['kw_s'] = $search_category;
-            } else {
-                $loop_params['kw']   = 0;
-                $loop_params['kw_s'] = '';
-            }
-
-            if ( isset( $loop_params['feed_id'] ) && '' !== $loop_params['feed_id'] ) {
-                $feed_id_parts = explode( '__', (string) $loop_params['feed_id'] );
-                if ( count( $feed_id_parts ) >= 3 ) {
-                    $feed_id_parts[ count( $feed_id_parts ) - 1 ] = $raw_category_id;
-                    $loop_params['feed_id'] = implode( '__', $feed_id_parts );
-                } else {
-                    $loop_params['feed_id'] = $raw_category_id;
-                }
-            }
+        foreach ( $straight_categories as $normalized_slug => $category_id ) {
+            $loop_params          = $params;
+            $loop_params['cat_s'] = $category_id;
+            $loop_params['category'] = $category_id;
 
             $cache_key = 'straight_' . md5( serialize( array(
                 'partner'   => isset( $loop_params['partner']['id'] ) ? $loop_params['partner']['id'] : '',
@@ -121,104 +52,43 @@ function lvjm_search_videos( $params = '' ) {
                     $new_videos = array();
                     wp_cache_set( $cache_key, $new_videos, $cache_group, MINUTE_IN_SECONDS );
                 } else {
-                    $new_videos   = (array) $search_videos->get_videos();
+                    $new_videos = (array) $search_videos->get_videos();
                     $searched_data = $search_videos->get_searched_data();
                     wp_cache_set( $cache_key, $new_videos, $cache_group, HOUR_IN_SECONDS );
                 }
             }
 
-            $log_count = 0;
-            if ( is_array( $new_videos ) ) {
-                $log_count = count( $new_videos );
-            } elseif ( is_object( $new_videos ) ) {
-                $log_count = count( (array) $new_videos );
-            }
-            error_log( sprintf( '[WPS-LiveJasmin] Category: %s — count: %d', $category_id, $log_count ) );
-
-            $videos_for_category = array();
             foreach ( (array) $new_videos as $video_item ) {
+                $video_id = null;
                 if ( is_array( $video_item ) ) {
-                    $video_item['partner_cat'] = $normalized_slug;
-                    $videos_for_category[]     = $video_item;
-                } else {
-                    $video_item->partner_cat = $normalized_slug;
-                    $videos_for_category[]   = $video_item;
+                    $video_id = isset( $video_item['id'] ) ? $video_item['id'] : null;
+                } elseif ( is_object( $video_item ) ) {
+                    $video_id = isset( $video_item->id ) ? $video_item->id : null;
+                }
+
+                if ( $video_id && ! isset( $seen_ids[ $video_id ] ) ) {
+                    $seen_ids[ $video_id ] = true;
+                    if ( is_array( $video_item ) ) {
+                        $video_item['partner_cat'] = $normalized_slug;
+                        $videos[]                  = $video_item;
+                    } else {
+                        $video_item->partner_cat = $normalized_slug;
+                        $videos[]                = $video_item;
+                    }
                 }
             }
 
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
                 error_log( sprintf( '[WPS-LiveJasmin] Brutal search → %s (%d videos)', $category_id, count( (array) $new_videos ) ) );
             }
-
-            $category_count  = count( $videos_for_category );
-            $imported_count  = 0;
-            foreach ( $videos_for_category as $video_item ) {
-                if ( is_array( $video_item ) ) {
-                    if ( ! empty( $video_item['already_imported'] ) ) {
-                        ++$imported_count;
-                    }
-                } elseif ( is_object( $video_item ) && ! empty( $video_item->already_imported ) ) {
-                    ++$imported_count;
-                }
-            }
-
-            if ( $category_count > 0 ) {
-                $imported_suffix = $imported_count > 0 ? sprintf( ' (%d already imported)', $imported_count ) : '';
-                $result_message  = sprintf( '%1$s — %2$d video(s)%3$s.', $raw_category_id, $category_count, $imported_suffix );
-            } else {
-                $result_message = sprintf( 'No results found in %s.', $raw_category_id );
-            }
-
-            $videos = $videos_for_category;
-
-            $multi_category_meta['current_category']      = $raw_category_id;
-            $multi_category_meta['current_category_slug'] = $normalized_slug;
-            $multi_category_meta['next_index']            = $start_index + 1;
-            $multi_category_meta['has_more']              = $multi_category_meta['next_index'] < $total_categories;
-            $multi_category_meta['completed']             = ! $multi_category_meta['has_more'];
-            $multi_category_meta['count']                 = $category_count;
-            $multi_category_meta['imported_count']        = $imported_count;
-            $multi_category_meta['auto_continue']         = $multi_category_meta['has_more'];
-            $multi_category_meta['message']               = $result_message;
         }
     } else {
-        if ( isset( $params['cat_s'] ) && ! isset( $params['cat_s_encoded'] ) ) {
-            $params['cat_s_encoded'] = rawurlencode( (string) $params['cat_s'] );
-        }
         $search_videos = new LVJM_Search_Videos( $params );
         if ( $search_videos->has_errors() ) {
             $errors = (array) $search_videos->get_errors();
         } else {
             $videos = (array) $search_videos->get_videos();
             $searched_data = $search_videos->get_searched_data();
-        }
-
-        $single_category = '';
-        if ( isset( $params['category'] ) && '' !== $params['category'] ) {
-            $single_category = (string) $params['category'];
-        } elseif ( isset( $params['cat_s'] ) && '' !== $params['cat_s'] ) {
-            $single_category = (string) $params['cat_s'];
-        }
-
-        if ( '' !== $single_category ) {
-            $count_videos   = is_array( $videos ) ? count( $videos ) : 0;
-            if ( $count_videos > 0 ) {
-                $imported_count = 0;
-                foreach ( (array) $videos as $video_item ) {
-                    if ( is_array( $video_item ) ) {
-                        if ( ! empty( $video_item['already_imported'] ) ) {
-                            ++$imported_count;
-                        }
-                    } elseif ( is_object( $video_item ) && ! empty( $video_item->already_imported ) ) {
-                        ++$imported_count;
-                    }
-                }
-                $imported_suffix = $imported_count > 0 ? sprintf( ' (%d already imported)', $imported_count ) : '';
-                $result_message  = sprintf( '%1$s — %2$d video(s)%3$s.', $single_category, $count_videos, $imported_suffix );
-            } else {
-                $result_message = sprintf( 'No results found in %s.', $single_category );
-            }
-            error_log( sprintf( '[WPS-LiveJasmin] Category: %s — count: %d', $single_category, $count_videos ) );
         }
     }
 
@@ -268,15 +138,6 @@ function lvjm_search_videos( $params = '' ) {
         $videos = $filtered;
     }
 
-    if ( $multi_category_meta['active'] ) {
-        $multi_category_meta['count'] = is_array( $videos ) ? count( $videos ) : 0;
-        if ( $multi_category_meta['has_more'] ) {
-            $multi_category_meta['auto_continue'] = true;
-        } else {
-            $multi_category_meta['auto_continue'] = false;
-        }
-    }
-
     if ( ! $ajax_call ) {
         return $videos;
     }
@@ -286,8 +147,6 @@ function lvjm_search_videos( $params = '' ) {
             'videos'        => $videos,
             'errors'        => $errors,
             'searched_data' => $searched_data,
-            'multi_category'=> $multi_category_meta,
-            'result_message'=> $result_message,
         )
     );
 

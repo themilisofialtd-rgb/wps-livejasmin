@@ -151,70 +151,24 @@ class LVJM_Search_Videos {
 					$this->feed_url   = $this->get_partner_feed_infos( $this->feed_infos->feed_url->data );
 
         // Replace template variables in feed_url
-        $saved_partner_options = WPSCORE()->get_product_option( 'LVJM', $this->params['partner']['id'] . '_options' );
-        $psid                  = isset( $saved_partner_options['psid'] ) ? sanitize_text_field( (string) $saved_partner_options['psid'] ) : '';
-        $access_key            = isset( $saved_partner_options['accesskey'] ) ? sanitize_text_field( (string) $saved_partner_options['accesskey'] ) : '';
-
-        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( '[WPS-LiveJasmin] Using PSID=' . $psid . ' AccessKey=' . substr( $access_key, 0, 5 ) . '...' );
-        }
-
-        $category_tag         = isset( $this->params['cat_s'] ) ? (string) $this->params['cat_s'] : '';
-        $category_tag_encoded = isset( $this->params['cat_s_encoded'] ) ? (string) $this->params['cat_s_encoded'] : rawurlencode( $category_tag );
-
         $this->feed_url = str_replace(
             [
                 '<%$this->params["cat_s"]%>',
                 '<%get_partner_option("psid")%>',
-                '<%get_partner_option("accesskey")%>',
-                '<%get_partner_option("accessKey")%>'
+                '<%get_partner_option("accesskey")%>'
             ],
             [
-                $category_tag_encoded,
-                $psid,
-                $access_key,
-                $access_key
+                isset($this->params['cat_s']) ? $this->params['cat_s'] : '',
+                get_option('wps_lj_psid'),
+                get_option('wps_lj_accesskey')
             ],
             $this->feed_url
         );
 
-        $query_args = array();
-        $parsed_url = wp_parse_url( $this->feed_url );
-        if ( false !== $parsed_url ) {
-                if ( isset( $parsed_url['query'] ) ) {
-                        parse_str( $parsed_url['query'], $query_args );
-                }
-
-                if ( '' !== $psid ) {
-                        $query_args['psid'] = $psid;
-                }
-
-                if ( '' !== $access_key ) {
-                        unset( $query_args['accesskey'] );
-                        $query_args['accessKey'] = $access_key;
-                }
-
-                if ( ! empty( $query_args ) ) {
-                        $parsed_url['query'] = http_build_query( $query_args, '', '&', PHP_QUERY_RFC3986 );
-                } else {
-                        unset( $parsed_url['query'] );
-                }
-
-                $this->feed_url = $this->unparse_url( $parsed_url );
-        }
-
-        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( '[WPS-LiveJasmin] Feed URL credentials applied: ' . print_r( array(
-                        'psid'      => isset( $query_args['psid'] ) ? $query_args['psid'] : '',
-                        'accessKey' => isset( $query_args['accessKey'] ) ? substr( $query_args['accessKey'], 0, 5 ) . '...' : '',
-                ), true ) );
-                error_log( '[WPS-LiveJasmin] Feed URL after credential enforcement: ' . $this->feed_url );
-        }
-
         // Append performer filter if provided
-        if ( isset( $this->params['performer'] ) && ! empty( $this->params['performer'] ) ) {
-            $name = rawurlencode( $this->params['performer'] );
-            $this->feed_url .= '&forcedPerformers=' . $name;
+        if ( isset($this->params['performer']) && !empty($this->params['performer']) ) {
+            $name = urlencode($this->params['performer']);
+            $this->feed_url .= '&forcedPerformers[]=' . $name;
         }
 
 					if ( ! $this->feed_url ) {
@@ -309,10 +263,10 @@ class LVJM_Search_Videos {
 				$new_query['sexualOrientation'] = 'shemale';
 			}
 		}
-                $parsed_url['query'] = http_build_query( $new_query, '', '&', PHP_QUERY_RFC3986 );
-                $feed_url            = $this->unparse_url( $parsed_url );
-                return $feed_url;
-        }
+		$parsed_url['query'] = http_build_query( $new_query );
+		$feed_url            = $this->unparse_url( $parsed_url );
+		return $feed_url;
+	}
 
 	/**
 	 * Unparse a parsed url.
@@ -341,24 +295,18 @@ class LVJM_Search_Videos {
 	 *
 	 * @return bool true if there are no error, false if not.
 	 */
-        private function retrieve_videos_from_json_feed() {
-                $existing_ids           = $this->get_partner_existing_ids();
-                $limit                  = isset( $this->params['limit'] ) ? absint( $this->params['limit'] ) : 60;
-                if ( $limit <= 0 ) {
-                        $limit = 60;
-                }
-                $limit                 = min( $limit, 60 );
-                $this->params['limit'] = $limit;
-                $array_valid_videos     = array();
-                $counters               = array(
+	private function retrieve_videos_from_json_feed() {
+		$existing_ids           = $this->get_partner_existing_ids();
+		$array_valid_videos     = array();
+		$counters               = array(
 			'valid_videos'    => 0,
 			'invalid_videos'  => 0,
 			'existing_videos' => 0,
 			'removed_videos'  => 0,
 		);
-                $videos_details         = array();
-                $count_valid_feed_items = 0;
-                $end                    = false;
+		$videos_details         = array();
+		$count_valid_feed_items = 0;
+		$end                    = false;
 
 		$root_feed_url = $this->get_feed_url_with_orientation();
 
@@ -440,74 +388,58 @@ class LVJM_Search_Videos {
 				$current_item           = 0;
 				$page_end               = false;
 			}
-                        while ( false === $page_end ) {
-                                $feed_item = new LVJM_Json_Item( $array_feed[ $current_item ] );
-                                $feed_item->init( $this->params, $this->feed_infos );
-                                if ( $feed_item->is_valid() ) {
-                                        $feed_item_id = $feed_item->get_id();
-
-                                        if ( in_array( $feed_item_id, (array) $existing_ids['partner_unwanted_videos_ids'], true ) ) {
-                                                $videos_details[] = array(
-                                                        'id'       => $feed_item_id,
-                                                        'response' => 'You removed it from search results',
-                                                );
-                                                ++$counters['removed_videos'];
-                                        } else {
-                                                $is_existing = in_array( $feed_item_id, (array) $existing_ids['partner_existing_videos_ids'], true );
-
-                                                if ( ! in_array( $feed_item_id, (array) $array_found_ids, true ) ) {
-                                                        $video_data = (array) $feed_item->get_data_for_json( $count_valid_feed_items );
-                                                        $video_data['already_imported'] = $is_existing;
-
-                                                        if ( $is_existing ) {
-                                                                $video_data['checked'] = false;
-                                                                $video_data['grabbed'] = true;
-                                                        }
-
-                                                        $array_valid_videos[] = $video_data;
-                                                        $array_found_ids[]    = $feed_item_id;
-
-                                                        $videos_details[] = array(
-                                                                'id'       => $feed_item_id,
-                                                                'response' => $is_existing ? 'Already imported' : 'Success',
-                                                        );
-
-                                                        if ( $is_existing ) {
-                                                                ++$counters['existing_videos'];
-                                                        } else {
-                                                                ++$counters['valid_videos'];
-                                                        }
-
-                                                        ++$count_valid_feed_items;
-                                                }
-                                        }
-                                } else {
-                                        $videos_details[] = array(
-                                                'id'       => $feed_item->get_id(),
-                                                'response' => 'Invalid',
-                                        );
-                                        ++$counters['invalid_videos'];
-                                }
-                                if ( ( $count_valid_feed_items >= $this->params['limit'] ) || $current_item >= ( $count_total_feed_items - 1 ) ) {
-                                        $page_end = true;
-                                        ++$current_page;
-                                        if ( $count_valid_feed_items >= $this->params['limit'] ) {
-                                                $end = true;
-                                        }
-                                }
-                                ++$current_item;
-                        }
+			while ( false === $page_end ) {
+				$feed_item = new LVJM_Json_Item( $array_feed[ $current_item ] );
+				$feed_item->init( $this->params, $this->feed_infos );
+				if ( $feed_item->is_valid() ) {
+					if ( ! in_array( $feed_item->get_id(), (array) $existing_ids['partner_all_videos_ids'], true ) ) {
+						$array_valid_videos[] = (array) $feed_item->get_data_for_json( $count_valid_feed_items );
+						$videos_details[]     = array(
+							'id'       => $feed_item->get_id(),
+							'response' => 'Success',
+						);
+						++$counters['valid_videos'];
+						++$count_valid_feed_items;
+					} elseif ( in_array( $feed_item->get_id(), (array) $existing_ids['partner_existing_videos_ids'], true ) ) {
+							$videos_details[] = array(
+								'id'       => $feed_item->get_id(),
+								'response' => 'Already imported',
+							);
+							++$counters['existing_videos'];
+					} elseif ( in_array( $feed_item->get_id(), (array) $existing_ids['partner_unwanted_videos_ids'], true ) ) {
+						$videos_details[] = array(
+							'id'       => $feed_item->get_id(),
+							'response' => 'You removed it from search results',
+						);
+						++$counters['removed_videos'];
+					}
+				} else {
+					$videos_details[] = array(
+						'id'       => $feed_item->get_id(),
+						'response' => 'Invalid',
+					);
+					++$counters['invalid_videos'];
+				}
+				if ( ( $count_valid_feed_items >= $this->params['limit'] ) || $current_item >= ( $count_total_feed_items - 1 ) ) {
+					$page_end = true;
+					++$current_page;
+					if ( $count_valid_feed_items >= $this->params['limit'] ) {
+						$end = true;
+					}
+				}
+				++$current_item;
+			}
 		}
 
 		unset( $array_feed );
-                $this->searched_data = array(
-                        'videos_details' => $videos_details,
-                        'counters'       => $counters,
-                        'videos'         => $array_valid_videos,
-                );
-                $this->videos        = $array_valid_videos;
-                return true;
-        }
+		$this->searched_data = array(
+			'videos_details' => $videos_details,
+			'counters'       => $counters,
+			'videos'         => $array_valid_videos,
+		);
+		$this->videos        = $array_valid_videos;
+		return true;
+	}
 
 	/**
 	 * Get partner feed info from a feed item given.
