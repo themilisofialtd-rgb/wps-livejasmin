@@ -186,15 +186,14 @@ class LVJM_Search_Videos {
                                                 'labelColor'        => 'FFFFFF',
                                         );
 
+                                        // Append performer filter if provided.
+                                        if ( isset( $this->params['performer'] ) && ! empty( $this->params['performer'] ) ) {
+                                                $params['forcedPerformers'] = trim( $this->params['performer'] );
+                                        }
+
                                         $this->feed_url = $base_url . '?' . http_build_query( $params );
 
                                         error_log( '[WPS-LiveJasmin] Final hard-coded feed URL: ' . $this->feed_url );
-
-                                        // Append performer filter if provided.
-                                        if ( isset( $this->params['performer'] ) && ! empty( $this->params['performer'] ) ) {
-                                                $name             = urlencode( $this->params['performer'] );
-                                                $this->feed_url .= '&forcedPerformers[]=' . $name;
-                                        }
 
 					if ( ! $this->feed_url ) {
 						WPSCORE()->write_log( 'error', 'Connection to Partner\'s API failed (feed url: <code>' . $this->feed_url . '</code> partner id: <code>:' . $this->params['partner']['id'] . '</code>)', __FILE__, __LINE__ );
