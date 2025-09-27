@@ -33,9 +33,38 @@ function lvjm_search_videos( $params = '' ) {
         $cache_group         = 'lvjm_search';
 
         foreach ( $straight_categories as $normalized_slug => $category_id ) {
-            $loop_params          = $params;
-            $loop_params['cat_s'] = $category_id;
-            $loop_params['category'] = $category_id;
+            $loop_params = $params;
+
+            $raw_category_id   = $category_id;
+            $search_category   = $raw_category_id;
+            $is_keyword_search = false;
+
+            if ( false !== strpos( $search_category, 'kw::' ) ) {
+                $is_keyword_search = true;
+                $search_category   = str_replace( 'kw::', '', $search_category );
+            }
+
+            $loop_params['cat_s']          = $search_category;
+            $loop_params['category']       = $search_category;
+            $loop_params['original_cat_s'] = str_replace( '&', '%%', $raw_category_id );
+
+            if ( $is_keyword_search ) {
+                $loop_params['kw']   = 1;
+                $loop_params['kw_s'] = $search_category;
+            } else {
+                $loop_params['kw']   = 0;
+                $loop_params['kw_s'] = '';
+            }
+
+            if ( isset( $loop_params['feed_id'] ) && '' !== $loop_params['feed_id'] ) {
+                $feed_id_parts = explode( '__', (string) $loop_params['feed_id'] );
+                if ( count( $feed_id_parts ) >= 3 ) {
+                    $feed_id_parts[ count( $feed_id_parts ) - 1 ] = $raw_category_id;
+                    $loop_params['feed_id'] = implode( '__', $feed_id_parts );
+                } else {
+                    $loop_params['feed_id'] = $raw_category_id;
+                }
+            }
 
             $cache_key = 'straight_' . md5( serialize( array(
                 'partner'   => isset( $loop_params['partner']['id'] ) ? $loop_params['partner']['id'] : '',
