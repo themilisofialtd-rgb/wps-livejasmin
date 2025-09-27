@@ -756,112 +756,48 @@ if ( ! function_exists( 'lvjm_get_straight_category_slugs' ) ) {
          * @return array
          */
         function lvjm_get_straight_category_slugs() {
-                $straight_categories = array(
-                        '69',
-                        'above average',
-                        'amateur',
-                        'anal',
-                        'angry',
-                        'asian',
-                        'ass',
-                        'ass to mouth',
-                        'athletic',
-                        'auburn hair',
-                        'babe',
-                        'bbw',
-                        'bdsm',
-                        'beautiful',
-                        'big ass',
-                        'big tits',
-                        'bisexual',
-                        'blonde',
-                        'blowjob',
-                        'bondage',
-                        'brunette',
-                        'cam girl',
-                        'cameltoe',
-                        'casting',
-                        'close up',
-                        'college',
-                        'couple',
-                        'creampie',
-                        'cuckold',
-                        'cumshot',
-                        'deepthroat',
-                        'dildo',
-                        'doggy style',
-                        'double penetration',
-                        'ebony',
-                        'erotic',
-                        'facial',
-                        'femdom',
-                        'fingering',
-                        'fisting',
-                        'foot fetish',
-                        'french',
-                        'gangbang',
-                        'german',
-                        'girl',
-                        'glasses',
-                        'group sex',
-                        'hairy',
-                        'handjob',
-                        'hardcore',
-                        'heels',
-                        'interracial',
-                        'japanese',
-                        'latina',
-                        'lesbian',
-                        'lingerie',
-                        'long hair',
-                        'masturbation',
-                        'mature',
-                        'milf',
-                        'moaning',
-                        'natural tits',
-                        'nurse',
-                        'oil',
-                        'orgasm',
-                        'outdoor',
-                        'panties',
-                        'party',
-                        'petite',
-                        'pov',
-                        'public',
-                        'pussy',
-                        'redhead',
-                        'roleplay',
-                        'russian',
-                        'schoolgirl',
-                        'sex toy',
-                        'shaved',
-                        'shemale',
-                        'shower',
-                        'small tits',
-                        'smoking',
-                        'sologirl',
-                        'squirting',
-                        'stockings',
-                        'strapon',
-                        'striptease',
-                        'swallow',
-                        'tattoo',
-                        'teen',
-                        'threesome',
-                        'toys',
-                        'trimmed',
-                        'uniform',
-                        'voyeur',
-                        'webcam',
-                        'white',
-                );
+                static $cached_categories = null;
 
-                $categories = array();
-                foreach ( $straight_categories as $category ) {
-                        $categories[ lvjm_normalize_category_slug( $category ) ] = $category;
+                if ( null !== $cached_categories ) {
+                        return $cached_categories;
                 }
 
-                return $categories;
+                $cached_categories = array();
+
+                if ( ! function_exists( 'LVJM' ) ) {
+                        return $cached_categories;
+                }
+
+                $lvjm_instance = LVJM();
+
+                if ( ! $lvjm_instance || ! method_exists( $lvjm_instance, 'get_partner_categories' ) ) {
+                        return $cached_categories;
+                }
+
+                $partner_categories = (array) $lvjm_instance->get_partner_categories();
+
+                $straight_key = 'optgroup::Straight';
+                if ( isset( $partner_categories[ $straight_key ] ) && is_array( $partner_categories[ $straight_key ] ) ) {
+                        foreach ( $partner_categories[ $straight_key ] as $category_id => $category_label ) {
+                                unset( $category_label );
+                                $cached_categories[ lvjm_normalize_category_slug( $category_id ) ] = $category_id;
+                        }
+                } else {
+                        foreach ( $partner_categories as $group_key => $group_categories ) {
+                                if ( 0 !== strcasecmp( $group_key, $straight_key ) && 0 !== strcasecmp( (string) $group_key, 'Straight' ) ) {
+                                        continue;
+                                }
+
+                                if ( is_array( $group_categories ) ) {
+                                        foreach ( $group_categories as $category_id => $category_label ) {
+                                                unset( $category_label );
+                                                $cached_categories[ lvjm_normalize_category_slug( $category_id ) ] = $category_id;
+                                        }
+                                }
+                        }
+                }
+
+                return $cached_categories;
         }
 }
 
