@@ -26,21 +26,14 @@ function lvjm_load_import_videos_data() {
 			$feeds_array[] = $feed;
 		}
 	}
-        $videos_limit = xbox_get_field_value( 'lvjm-options', 'search-results' );
-        $videos_limit = absint( $videos_limit );
-        if ( $videos_limit <= 0 ) {
-                $videos_limit = 60;
-        }
-        $videos_limit = min( $videos_limit, 60 );
-
-        $data = array(
-                'feeds'             => $feeds_array,
-                'objectL10n'        => LVJM()->get_object_l10n(),
-                'partners'          => LVJM()->get_partners(),
-                'videosLimit'       => $videos_limit,
-                'WPCats'            => LVJM()->get_wp_cats(),
-                'autoImportEnabled' => xbox_get_field_value( 'lvjm-options', 'lvjm-enable-auto-import' ),
-        );
+	$data = array(
+		'feeds'             => $feeds_array,
+		'objectL10n'        => LVJM()->get_object_l10n(),
+		'partners'          => LVJM()->get_partners(),
+		'videosLimit'       => xbox_get_field_value( 'lvjm-options', 'search-results' ),
+		'WPCats'            => LVJM()->get_wp_cats(),
+		'autoImportEnabled' => xbox_get_field_value( 'lvjm-options', 'lvjm-enable-auto-import' ),
+	);
 	wp_send_json( $data );
 	wp_die();
 }

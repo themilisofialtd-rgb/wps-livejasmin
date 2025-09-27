@@ -165,8 +165,7 @@ function lvjm_import_videos_page() {
 													<button v-show="!searchingVideos && !videosHasBeenSearched" v-on:click.prevent="searchVideos('create')" class="btn btn-info" v-bind:class="searchBtnClass" rel="tooltip" data-placement="top" v-bind:data-original-title="searchButtonTooltip"><i class="fa fa-search" aria-hidden="true"></i> <?php esc_html_e( 'Search videos', 'lvjm_lang' ); ?></button>
 													<button v-show="searchingVideos" disabled="disabled" class="btn btn-info"><i class="fa fa-spinner fa-pulse" aria-hidden="true"></i> <?php esc_html_e( 'Searching videos...', 'lvjm_lang' ); ?></button>
 													<?php /* translators: %s: number of videos in the search results */ ?>
-                                                                                                        <small><i class="fa fa-info-circle" aria-hidden="true"></i> <?php printf( esc_html__( 'Each search displays up to %s videos at a time. Already imported videos stay visible and are clearly labeled.', 'lvjm_lang' ), '{{data.videosLimit}}' ); ?></small>
-                                                                                                        <p v-if="resultMessage" class="text-info margin-top-5"><strong>{{ resultMessage }}</strong></p>
+													<small><i class="fa fa-info-circle" aria-hidden="true"></i> <?php printf( esc_html__( 'Each search displays up to %s unique videos at a time and excludes any videos already imported.', 'lvjm_lang' ), '{{data.videosLimit}}' ); ?></small>
 												</div>
 											</div>
 										</div>
@@ -198,16 +197,16 @@ function lvjm_import_videos_page() {
 										<transition name="fade">
 											<div v-show="videosCounter > 0" id="videos-found" class="col-xs-12 margin-top-10">
 												<div id="sticky-space" class="col-xs-12"></div>
-                                                                                                        <div id="videos-found-header" class="col-xs-12">
-                                                                                                        <h3><i class="fa" v-bind:class="[displayType == 'cards' ? 'fa-th' : 'fa-list-ul']"></i>
-                                                                                                                <?php esc_html_e( 'Search results', 'lvjm_lang' ); ?>
-                                                                                                                <template v-if="searchFromFeed">
-                                                                                                                        : {{videosCounter}} <?php esc_html_e( 'new videos found with', 'lvjm_lang' ); ?> <img class="border-radius-4" v-bind:src="'https://res.cloudinary.com/themabiz/image/upload/wpscript/sources/' + selectedPartnerObject.id + '.jpg'" v-bind:alt="selectedPartnerObject.name"> / {{selectedKW != '' && selectedKW != undefined ? 'Keyword "' + selectedKW + '"':'Category "' + selectedPartnerCatName + '"'}}
-                                                                                                                </template>
-                                                                                                                <button class="btn btn-link btn-sm" data-toggle="modal" data-target="#search-details-modal"><?php esc_html_e( 'See details', 'lvjm_lang' ); ?></button>
-                                                                                                        </h3>
-                                                                                                        <div id="videos-found-header-block" class="margin-bottom-10">
-                                                                                                                <div class="form-inline">
+												<div id="videos-found-header" class="col-xs-12">
+													<h3><i class="fa" v-bind:class="[displayType == 'cards' ? 'fa-th' : 'fa-list-ul']"></i> 
+														<?php esc_html_e( 'Search results', 'lvjm_lang' ); ?> 
+														<template v-if="searchFromFeed">
+															: {{videosCounter}} <?php esc_html_e( 'new videos found with', 'lvjm_lang' ); ?> <img class="border-radius-4" v-bind:src="'https://res.cloudinary.com/themabiz/image/upload/wpscript/sources/' + selectedPartnerObject.id + '.jpg'" v-bind:alt="selectedPartnerObject.name"> / {{selectedKW != '' && selectedKW != undefined ? 'Keyword "' + selectedKW + '"':'Category "' + selectedPartnerCatName + '"'}}
+														</template>
+														<button class="btn btn-link btn-sm" data-toggle="modal" data-target="#search-details-modal"><?php esc_html_e( 'See details', 'lvjm_lang' ); ?></button>
+													</h3>
+													<div id="videos-found-header-block" class="margin-bottom-10">
+														<div class="form-inline">
 															<div id="videos-found-header-left" class="pull-left">
 																<button v-bind:disabled="importingVideos" v-on:click.prevent="toogleAllVideos" class="btn btn-default" id="bulk-checked" rel="0"><i class="fa" v-bind:class="[allVideosChecked ? 'fa-check-square-o':'fa-square-o']"></i> <span v-if="!allVideosChecked"><?php esc_html_e( 'Check all videos', 'lvjm_lang' ); ?></span><span v-else><?php esc_html_e( 'Uncheck all videos', 'lvjm_lang' ); ?></span></button>
 																<span v-show="!firstImport">
@@ -248,24 +247,14 @@ function lvjm_import_videos_page() {
 																</div>
 																<button v-show="videosHasBeenSearched" v-on:click.prevent="resetSearch" v-bind:disabled="importingVideos" class="btn btn-danger" rel="tooltip" data-placement="top" data-original-title="<?php esc_html_e( 'Close search results and make a new search', 'lvjm_lang' ); ?>"><span class="fa fa-times" aria-hidden="true"></span></button>
 															</div>
-                                                                                                                </div>
-                                                                                                                <div class="clearfix"></div>
-                                                                                                        </div>
-                                                                                                        <div v-if="multiCategory.awaitingUser" class="alert alert-info margin-top-10">
-                                                                                                                <p class="margin-bottom-10">
-                                                                                                                        <strong><?php esc_html_e( 'Continue searching next category?', 'lvjm_lang' ); ?></strong>
-                                                                                                                        <span v-if="multiCategory.message">
-    — {{ multiCategory.message }}
-                                                                                                                        </span>
-                                                                                                                </p>
-                                                                                                                <button class="btn btn-primary" v-on:click.prevent="continueMultiCategorySearch"><?php esc_html_e( 'Yes', 'lvjm_lang' ); ?></button>
-                                                                                                                <button class="btn btn-default" v-on:click.prevent="stopMultiCategorySearch"><?php esc_html_e( 'No', 'lvjm_lang' ); ?></button>
-                                                                                                        </div>
-                                                                                                        <div class="progress">
-                                                                                                                <div class="progress-bar progress-bar-success" role="progressbar" v-bind:aria-valuenow="importProgress" aria-valuemin="0" aria-valuemax="100" v-bind:style="'width:' + importProgress + '%;'">
-                                                                                                                <span><i aria-hidden="true" class="fa fa-check"></i> <?php esc_html_e( 'Import done!', 'lvjm_lang' ); ?></span>
-                                                                                                                </div>
-                                                                                                        </div>
+														</div>
+														<div class="clearfix"></div>
+													</div>
+													<div class="progress">
+														<div class="progress-bar progress-bar-success" role="progressbar" v-bind:aria-valuenow="importProgress" aria-valuemin="0" aria-valuemax="100" v-bind:style="'width:' + importProgress + '%;'">
+														<span><i aria-hidden="true" class="fa fa-check"></i> <?php esc_html_e( 'Import done!', 'lvjm_lang' ); ?></span>
+														</div>
+													</div>
 													<div v-if="!selectedPartnerObject.filters.https && siteIsHttps" class="row margin-top-0 margin-bottom-10">
 														<div class="col-xs-12">
 															<div class="alert alert-danger text-center margin-bottom-0" role="alert">
@@ -277,7 +266,7 @@ function lvjm_import_videos_page() {
 												<div id="videos" class="row" v-bind:class="displayType">
 													<template v-if="displayType == 'cards'">
 														<div v-for="(video, index) in videos" class="col-xs-12 col-sm-6 col-md-3 col-lg-2 item-cards" v-bind:key="video.id">
-                                                                                                                        <div class="video" v-bind:class="{'grabbed': video.grabbed, 'checked': video.checked}" >
+															<div class="video" v-bind:class="{'grabbed': video.grabbed, 'checked': video.checked}" >
 																<div class="video-img" v-on:click.prevent="setCurrentVideo(video, index)">
 																	<img class="img-responsive" src="<?php echo esc_html( LVJM_URL ); ?>admin/assets/img/loading-thumb.gif" v-img="video.thumb_url" data-toggle="modal" data-target="#video-preview-modal" v-bind:alt="video.title" />
 																	<div class="video-data" data-toggle="modal" data-target="#video-preview-modal">
@@ -286,10 +275,7 @@ function lvjm_import_videos_page() {
 																		<span v-if="video.trailer_url != ''" class="video-has-trailer"> <small><i class="fa fa-file-video-o" aria-hidden="true"></i> 1</small></span>
 																	</div>
 																</div>
-                                                                                                                               <h4>
-                                                                                                                                        {{video.title}}
-                                                                                                                                        <small v-if="video.already_imported" class="text-muted already-imported-label">(<?php esc_html_e( 'Already Imported', 'lvjm_lang' ); ?>)</small>
-                                                                                                                               </h4>
+																<h4>{{video.title}}</h4>
 																<div class="text-center" v-if="!video.grabbed">
 																	<div class="btn-group">
 																		<div class="btn-group">
@@ -305,7 +291,7 @@ function lvjm_import_videos_page() {
 																		<i class="fa text-danger" v-bind:class="[video.loading.removing ? 'fa-spinner fa-pulse' : 'fa-trash']" aria-hidden="true"></i>
 																	</button>
 																</div>
-                                                                                                                               <button v-else class="btn text-center btn-block disabled">(<?php esc_html_e( 'Already Imported', 'lvjm_lang' ); ?>)</button>
+																<button v-else class="btn text-center btn-block disabled"><?php esc_html_e( 'Video imported', 'lvjm_lang' ); ?></button>
 															</div>
 														</div>
 													</template>
@@ -331,7 +317,7 @@ function lvjm_import_videos_page() {
 																			<img v-else width="100"  src="<?php echo 'lvjm_lang'; ?>admin/assets/img/loading-thumb.gif" v-img="video.thumb_url" v-bind:alt="video.title" />
 																		</td>
 																		<template v-if="video.grabbed">
-                                                                                                                               <td colspan="3" class="video-td-imported">(<?php esc_html_e( 'Already Imported', 'lvjm_lang' ); ?>)</td>
+																			<td colspan="3" class="video-td-imported"><?php esc_html_e( 'Video imported', 'lvjm_lang' ); ?></td>
 																		</template>
 																		<template v-else>
 																			<td>
