@@ -732,6 +732,51 @@ if ( ! function_exists( 'lvjm_recursive_sanitize_text_field' ) ) {
         }
 }
 
+if ( ! function_exists( 'lvjm_get_client_ip_address' ) ) {
+        /**
+         * Resolve the most accurate client IP address available for the request.
+         *
+         * Checks common proxy headers before falling back to REMOTE_ADDR. When no
+         * valid IP can be determined, a safe localhost value is returned so API
+         * requests always receive a value.
+         *
+         * @return string
+         */
+        function lvjm_get_client_ip_address() {
+                $default     = '127.0.0.1';
+                $server_keys = array(
+                        'HTTP_CLIENT_IP',
+                        'HTTP_X_FORWARDED_FOR',
+                        'HTTP_X_FORWARDED',
+                        'HTTP_X_CLUSTER_CLIENT_IP',
+                        'HTTP_FORWARDED_FOR',
+                        'HTTP_FORWARDED',
+                        'REMOTE_ADDR',
+                );
+
+                foreach ( $server_keys as $key ) {
+                        if ( empty( $_SERVER[ $key ] ) ) {
+                                continue;
+                        }
+
+                        $raw_ips = explode( ',', (string) $_SERVER[ $key ] );
+                        foreach ( $raw_ips as $ip ) {
+                                $ip = trim( $ip );
+                                if ( '' === $ip ) {
+                                        continue;
+                                }
+
+                                $sanitized_ip = sanitize_text_field( $ip );
+                                if ( filter_var( $sanitized_ip, FILTER_VALIDATE_IP ) ) {
+                                        return $sanitized_ip;
+                                }
+                        }
+                }
+
+                return $default;
+        }
+}
+
 if ( ! function_exists( 'lvjm_normalize_category_slug' ) ) {
         /**
          * Normalize a partner category identifier to a slug compatible with the API/cache.

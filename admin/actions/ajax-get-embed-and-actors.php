@@ -48,7 +48,8 @@ function lvjm_get_embed_and_actors( $params = '' ) {
         $access_key            = isset( $saved_partner_options['accesskey'] ) ? sanitize_text_field( (string) $saved_partner_options['accesskey'] ) : '';
         $primary_color         = str_replace( '#', '', xbox_get_field_value( 'lvjm-options', 'primary-color' ) );
         $label_color           = str_replace( '#', '', xbox_get_field_value( 'lvjm-options', 'label-color' ) );
-        $client_ip             = '90.90.90.90';
+        $client_ip             = lvjm_get_client_ip_address();
+        error_log( '[WPS-LiveJasmin] Using client IP for embed details request: ' . $client_ip );
         $api_url               = 'https://pt.ptawe.com/api/video-promotion/v1/details/' . $params['video_id'] . '?clientIp=' . $client_ip . '&primaryColor=' . $primary_color . '&labelColor=' . $label_color . '&psid=' . $psid . '&accessKey=' . $access_key;
         $args                  = array(
                 'timeout'   => 300,
