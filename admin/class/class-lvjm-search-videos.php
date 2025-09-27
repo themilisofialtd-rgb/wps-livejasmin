@@ -340,8 +340,9 @@ class LVJM_Search_Videos {
                         'removed_videos'  => 0,
                 );
 		$videos_details         = array();
-		$count_valid_feed_items = 0;
-		$end                    = false;
+                $count_valid_feed_items = 0;
+                $end                    = false;
+                $total_pages            = null;
 
 		$root_feed_url = $this->get_feed_url_with_orientation();
 
@@ -365,16 +366,31 @@ class LVJM_Search_Videos {
 
 		$array_found_ids = array();
 
-		while ( false === $end ) {
+                while ( false === $end ) {
 
-			if ( '' !== $paged ) {
-					$this->feed_url = $root_feed_url . $paged . $current_page;
-			}
+                        if ( null !== $total_pages && $current_page > $total_pages ) {
+                                break;
+                        }
+
+                        if ( '' !== $paged ) {
+                                        $this->feed_url = $root_feed_url . $paged . $current_page;
+                        }
+
+                        $log_performer = isset( $this->params['performer'] ) ? sanitize_text_field( (string) $this->params['performer'] ) : '';
+                        $log_category  = isset( $this->params['cat_s'] ) ? sanitize_text_field( (string) $this->params['cat_s'] ) : '';
+                        error_log(
+                                sprintf(
+                                        '[WPS-LiveJasmin] Fetching page %d (performer: %s, category: %s)',
+                                        $current_page,
+                                        '' === $log_performer ? 'n/a' : $log_performer,
+                                        '' === $log_category ? 'n/a' : $log_category
+                                )
+                        );
 
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
                 error_log( '[WPS-LiveJasmin] Final feed URL used: ' . $this->feed_url );
         }
-			$response = wp_remote_get( $this->feed_url, $args );
+                        $response = wp_remote_get( $this->feed_url, $args );
 
 			if ( is_wp_error( $response ) ) {
 				WPSCORE()->write_log( 'error', 'Retrieving videos from JSON feed failed<code>ERROR: ' . wp_json_encode( $response->errors ) . '</code>', __FILE__, __LINE__ );
@@ -393,22 +409,26 @@ class LVJM_Search_Videos {
 
 			$response_body = json_decode( wp_remote_retrieve_body( $response ), true );
 
-			if ( $response_body['status'] && 'ERROR' === $response_body['status'] ) {
-				$end              = true;
-				$page_end         = true;
-				$videos_details[] = array(
-					'id'       => 'end',
-					'response' => 'livejasmin API Error',
+                        if ( isset( $response_body['data']['pagination']['totalPages'] ) ) {
+                                $total_pages = (int) $response_body['data']['pagination']['totalPages'];
+                        }
+
+                        if ( $response_body['status'] && 'ERROR' === $response_body['status'] ) {
+                                $end              = true;
+                                $page_end         = true;
+                                $videos_details[] = array(
+                                        'id'       => 'end',
+                                        'response' => 'livejasmin API Error',
 				);
 			}
 
 			// feed url last page reached.
-			if ( 0 === count( (array) $response_body['data']['videos'] ) || $current_page > $response_body['data']['pagination']['totalPages'] ) {
-				$end              = true;
-				$page_end         = true;
-				$videos_details[] = array(
-					'id'       => 'end',
-					'response' => 'No more videos',
+                        if ( 0 === count( (array) $response_body['data']['videos'] ) ) {
+                                $end              = true;
+                                $page_end         = true;
+                                $videos_details[] = array(
+                                        'id'       => 'end',
+                                        'response' => 'No more videos',
 				);
 			} else {
 				// améliorer root selon paramètres / ou si null dans la config.
@@ -478,16 +498,16 @@ class LVJM_Search_Videos {
 					);
 					++$counters['invalid_videos'];
 				}
-				if ( ( $count_valid_feed_items >= $this->params['limit'] ) || $current_item >= ( $count_total_feed_items - 1 ) ) {
-					$page_end = true;
-					++$current_page;
-					if ( $count_valid_feed_items >= $this->params['limit'] ) {
-						$end = true;
-					}
-				}
-				++$current_item;
-			}
-		}
+                                if ( $current_item >= ( $count_total_feed_items - 1 ) ) {
+                                        $page_end = true;
+                                        ++$current_page;
+                                        if ( '' === $paged || ( null !== $total_pages && $current_page > $total_pages ) ) {
+                                                $end = true;
+                                        }
+                                }
+                                ++$current_item;
+                        }
+                }
 
 		unset( $array_feed );
 		$this->searched_data = array(
