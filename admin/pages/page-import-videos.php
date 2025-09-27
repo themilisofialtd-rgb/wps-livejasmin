@@ -197,16 +197,16 @@ function lvjm_import_videos_page() {
 										<transition name="fade">
 											<div v-show="videosCounter > 0" id="videos-found" class="col-xs-12 margin-top-10">
 												<div id="sticky-space" class="col-xs-12"></div>
-												<div id="videos-found-header" class="col-xs-12">
-													<h3><i class="fa" v-bind:class="[displayType == 'cards' ? 'fa-th' : 'fa-list-ul']"></i> 
-														<?php esc_html_e( 'Search results', 'lvjm_lang' ); ?> 
-														<template v-if="searchFromFeed">
-															: {{videosCounter}} <?php esc_html_e( 'new videos found with', 'lvjm_lang' ); ?> <img class="border-radius-4" v-bind:src="'https://res.cloudinary.com/themabiz/image/upload/wpscript/sources/' + selectedPartnerObject.id + '.jpg'" v-bind:alt="selectedPartnerObject.name"> / {{selectedKW != '' && selectedKW != undefined ? 'Keyword "' + selectedKW + '"':'Category "' + selectedPartnerCatName + '"'}}
-														</template>
-														<button class="btn btn-link btn-sm" data-toggle="modal" data-target="#search-details-modal"><?php esc_html_e( 'See details', 'lvjm_lang' ); ?></button>
-													</h3>
-													<div id="videos-found-header-block" class="margin-bottom-10">
-														<div class="form-inline">
+                                                                                                        <div id="videos-found-header" class="col-xs-12">
+                                                                                                        <h3><i class="fa" v-bind:class="[displayType == 'cards' ? 'fa-th' : 'fa-list-ul']"></i>
+                                                                                                                <?php esc_html_e( 'Search results', 'lvjm_lang' ); ?>
+                                                                                                                <template v-if="searchFromFeed">
+                                                                                                                        : {{videosCounter}} <?php esc_html_e( 'new videos found with', 'lvjm_lang' ); ?> <img class="border-radius-4" v-bind:src="'https://res.cloudinary.com/themabiz/image/upload/wpscript/sources/' + selectedPartnerObject.id + '.jpg'" v-bind:alt="selectedPartnerObject.name"> / {{selectedKW != '' && selectedKW != undefined ? 'Keyword "' + selectedKW + '"':'Category "' + selectedPartnerCatName + '"'}}
+                                                                                                                </template>
+                                                                                                                <button class="btn btn-link btn-sm" data-toggle="modal" data-target="#search-details-modal"><?php esc_html_e( 'See details', 'lvjm_lang' ); ?></button>
+                                                                                                        </h3>
+                                                                                                        <div id="videos-found-header-block" class="margin-bottom-10">
+                                                                                                                <div class="form-inline">
 															<div id="videos-found-header-left" class="pull-left">
 																<button v-bind:disabled="importingVideos" v-on:click.prevent="toogleAllVideos" class="btn btn-default" id="bulk-checked" rel="0"><i class="fa" v-bind:class="[allVideosChecked ? 'fa-check-square-o':'fa-square-o']"></i> <span v-if="!allVideosChecked"><?php esc_html_e( 'Check all videos', 'lvjm_lang' ); ?></span><span v-else><?php esc_html_e( 'Uncheck all videos', 'lvjm_lang' ); ?></span></button>
 																<span v-show="!firstImport">
@@ -247,14 +247,24 @@ function lvjm_import_videos_page() {
 																</div>
 																<button v-show="videosHasBeenSearched" v-on:click.prevent="resetSearch" v-bind:disabled="importingVideos" class="btn btn-danger" rel="tooltip" data-placement="top" data-original-title="<?php esc_html_e( 'Close search results and make a new search', 'lvjm_lang' ); ?>"><span class="fa fa-times" aria-hidden="true"></span></button>
 															</div>
-														</div>
-														<div class="clearfix"></div>
-													</div>
-													<div class="progress">
-														<div class="progress-bar progress-bar-success" role="progressbar" v-bind:aria-valuenow="importProgress" aria-valuemin="0" aria-valuemax="100" v-bind:style="'width:' + importProgress + '%;'">
-														<span><i aria-hidden="true" class="fa fa-check"></i> <?php esc_html_e( 'Import done!', 'lvjm_lang' ); ?></span>
-														</div>
-													</div>
+                                                                                                                </div>
+                                                                                                                <div class="clearfix"></div>
+                                                                                                        </div>
+                                                                                                        <div v-if="multiCategory.awaitingUser" class="alert alert-info margin-top-10">
+                                                                                                                <p class="margin-bottom-10">
+                                                                                                                        <strong><?php esc_html_e( 'Continue searching next category?', 'lvjm_lang' ); ?></strong>
+                                                                                                                        <span v-if="multiCategory.currentCategory">
+                                                                                                                                — <?php esc_html_e( 'Found in', 'lvjm_lang' ); ?> {{ multiCategory.currentCategory }} ({{ multiCategory.lastCount }})
+                                                                                                                        </span>
+                                                                                                                </p>
+                                                                                                                <button class="btn btn-primary" v-on:click.prevent="continueMultiCategorySearch"><?php esc_html_e( 'Yes', 'lvjm_lang' ); ?></button>
+                                                                                                                <button class="btn btn-default" v-on:click.prevent="stopMultiCategorySearch"><?php esc_html_e( 'No', 'lvjm_lang' ); ?></button>
+                                                                                                        </div>
+                                                                                                        <div class="progress">
+                                                                                                                <div class="progress-bar progress-bar-success" role="progressbar" v-bind:aria-valuenow="importProgress" aria-valuemin="0" aria-valuemax="100" v-bind:style="'width:' + importProgress + '%;'">
+                                                                                                                <span><i aria-hidden="true" class="fa fa-check"></i> <?php esc_html_e( 'Import done!', 'lvjm_lang' ); ?></span>
+                                                                                                                </div>
+                                                                                                        </div>
 													<div v-if="!selectedPartnerObject.filters.https && siteIsHttps" class="row margin-top-0 margin-bottom-10">
 														<div class="col-xs-12">
 															<div class="alert alert-danger text-center margin-bottom-0" role="alert">

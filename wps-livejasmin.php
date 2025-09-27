@@ -751,7 +751,7 @@ if ( ! function_exists( 'lvjm_normalize_category_slug' ) ) {
 
 if ( ! function_exists( 'lvjm_get_straight_category_slugs' ) ) {
         /**
-         * Retrieve normalized slugs for all straight partner categories.
+         * Retrieve normalized slugs for the predefined straight partner categories list.
          *
          * @return array
          */
@@ -762,39 +762,43 @@ if ( ! function_exists( 'lvjm_get_straight_category_slugs' ) ) {
                         return $cached_categories;
                 }
 
+                $straight_categories = array(
+                        '69','Above Average','Amateur','Anal','Angry','Asian','Ass','Ass To mouth','Athletic','Auburn Hair',
+                        'Babe','Bald','Ball Sucking','Bathroom','Bbc','BBW','Bdsm','Bed','Big Ass','Big Boobs',
+                        'Big Booty','Big Breasts','Big Cock','Big Tits','Bizarre','Black Eyes','Black Girl','Black Hair',
+                        'Blonde','Blond Hair','Blowjob','Blue Eyes','Blue Hair','Bondage','Boots','Booty','Bossy',
+                        'Brown Eyes','Brown Hair','Brunette','Butt Plug','Cam Girl','Cam Porn','Cameltoe','Celebrity',
+                        'Cfnm','Cheerleader','Clown Hair','Cock','College Girl','Cop','Cosplay','Cougar','Couple',
+                        'Cowgirl','Creampie','Crew Cut','Cum','Cum On Tits','Cumshot','Curious','Cut','Cute','Dance',
+                        'Deepthroat','Dilde','Dirty','Doctor','Doggy','Domination','Double Penetration','Ebony','Erotic',
+                        'Eye Contact','Facesitting','Facial','Fake Tits','Fat Ass','Fetish','Fingering','Fire Red Hair',
+                        'Fishnet','Fisting','Flirting','Foot Sex','Footjob','Fuck','Gag','Gaping','Gilf','Girl',
+                        'Glamour','Glasses','Green Eyes','Grey Eyes','Group','Gym','Hairy','Handjob','Hard Cock','Hd',
+                        'High Heels','Homemade','Homy','Hot','Hot Flirt','Housewife','Huge Cock','Huge Tits','Innocent',
+                        'Interracial','Intim Piercing','Jeans','Kitchen','Ladyboy','Large Build','Latex','Latin','Latina',
+                        'Leather','Lesbian','Lick','Lingerie','Live Sex','Long Hair','Long Nails','Machine','Maid',
+                        'Massage','Masturbation','Mature','Milf','Missionary','Misstress','Moaning','Muscular','Muslim',
+                        'Naked','Nasty','Natural Tits','Normal Cock','Normal Tits','Nurse','Nylon','Office','Oiled',
+                        'Orange Hair','Orgasm','Orgy','Outdoor','Party','Pawg','Petite','Piercing','Pink Hair','Pissing',
+                        'Pool','Pov','Pregnant','Princess','Public','punish','Pussy','Pvc','Quicky','Redhead',
+                        'Remote Toy','Reverse Cowgirl','Riding','Rimjob','Roleplay','Romantic','Room','Rough','Schoolgirl',
+                        'Scissoring','Scream','Secretary','Sensual','Sextoy','Sexy','Shaved','Short Girl','Short Hair',
+                        'Shoulder Lenght Hair','Shy','Skinny','Slave','Sloppy','Slutty','Small Ass','Small Cock',
+                        'Smoking','Solo','Sologirl','squirt','Stockings','Strap On','Stretching','Striptease','Stroking',
+                        'Suck','Swallow','Tall','Tattoo','Teacher','Teasing','Teen','Treesome','Tight','Tiny Tits',
+                        'Titjob','Toy','Trimmed','Uniform','Virgin','Watching','Wet','White','Lesbian'
+                );
+
                 $cached_categories = array();
 
-                if ( ! function_exists( 'LVJM' ) ) {
-                        return $cached_categories;
-                }
+                foreach ( $straight_categories as $category ) {
+                        $normalized = lvjm_normalize_category_slug( $category );
 
-                $lvjm_instance = LVJM();
-
-                if ( ! $lvjm_instance || ! method_exists( $lvjm_instance, 'get_partner_categories' ) ) {
-                        return $cached_categories;
-                }
-
-                $partner_categories = (array) $lvjm_instance->get_partner_categories();
-
-                $straight_key = 'optgroup::Straight';
-                if ( isset( $partner_categories[ $straight_key ] ) && is_array( $partner_categories[ $straight_key ] ) ) {
-                        foreach ( $partner_categories[ $straight_key ] as $category_id => $category_label ) {
-                                unset( $category_label );
-                                $cached_categories[ lvjm_normalize_category_slug( $category_id ) ] = $category_id;
+                        if ( '' === $normalized ) {
+                                continue;
                         }
-                } else {
-                        foreach ( $partner_categories as $group_key => $group_categories ) {
-                                if ( 0 !== strcasecmp( $group_key, $straight_key ) && 0 !== strcasecmp( (string) $group_key, 'Straight' ) ) {
-                                        continue;
-                                }
 
-                                if ( is_array( $group_categories ) ) {
-                                        foreach ( $group_categories as $category_id => $category_label ) {
-                                                unset( $category_label );
-                                                $cached_categories[ lvjm_normalize_category_slug( $category_id ) ] = $category_id;
-                                        }
-                                }
-                        }
+                        $cached_categories[ $normalized ] = $category;
                 }
 
                 return $cached_categories;

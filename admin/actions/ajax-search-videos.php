@@ -23,16 +23,40 @@ function lvjm_search_videos( $params = '' ) {
 
     $errors         = array();
     $videos         = array();
-    $seen_ids       = array();
     $searched_data  = array();
     $performer      = isset( $params['performer'] ) ? sanitize_text_field( (string) $params['performer'] ) : '';
     $is_multi  = isset( $params['multi_category_search'] ) && '1' === (string) $params['multi_category_search'];
+    $multi_category_meta = array(
+        'active'        => false,
+        'auto_continue' => false,
+    );
 
     if ( $is_multi ) {
         $straight_categories = lvjm_get_straight_category_slugs(); // slug => original id.
         $cache_group         = 'lvjm_search';
+        $category_slugs      = array_keys( $straight_categories );
+        $total_categories    = count( $category_slugs );
+        $start_index         = isset( $params['multi_category_index'] ) ? max( 0, (int) $params['multi_category_index'] ) : 0;
 
-        foreach ( $straight_categories as $normalized_slug => $category_id ) {
+        if ( $start_index > $total_categories ) {
+            $start_index = $total_categories;
+        }
+
+        $multi_category_meta = array(
+            'active'               => true,
+            'current_category'     => '',
+            'current_category_slug'=> '',
+            'next_index'           => $start_index,
+            'has_more'             => false,
+            'count'                => 0,
+            'completed'            => $start_index >= $total_categories,
+            'auto_continue'        => false,
+        );
+
+        for ( $index = $start_index; $index < $total_categories; $index++ ) {
+            $normalized_slug = $category_slugs[ $index ];
+            $category_id     = $straight_categories[ $normalized_slug ];
+
             $loop_params = $params;
 
             $raw_category_id   = $category_id;
@@ -47,6 +71,7 @@ function lvjm_search_videos( $params = '' ) {
             $loop_params['cat_s']          = $search_category;
             $loop_params['category']       = $search_category;
             $loop_params['original_cat_s'] = str_replace( '&', '%%', $raw_category_id );
+            $loop_params['cat_s_encoded']  = rawurlencode( $search_category );
 
             if ( $is_keyword_search ) {
                 $loop_params['kw']   = 1;
@@ -81,7 +106,7 @@ function lvjm_search_videos( $params = '' ) {
                     $new_videos = array();
                     wp_cache_set( $cache_key, $new_videos, $cache_group, MINUTE_IN_SECONDS );
                 } else {
-                    $new_videos = (array) $search_videos->get_videos();
+                    $new_videos   = (array) $search_videos->get_videos();
                     $searched_data = $search_videos->get_searched_data();
                     wp_cache_set( $cache_key, $new_videos, $cache_group, HOUR_IN_SECONDS );
                 }
@@ -95,29 +120,41 @@ function lvjm_search_videos( $params = '' ) {
             }
             error_log( sprintf( '[WPS-LiveJasmin] Category: %s — count: %d', $category_id, $log_count ) );
 
+            $videos_for_category = array();
             foreach ( (array) $new_videos as $video_item ) {
-                $video_id = null;
                 if ( is_array( $video_item ) ) {
-                    $video_id = isset( $video_item['id'] ) ? $video_item['id'] : null;
-                } elseif ( is_object( $video_item ) ) {
-                    $video_id = isset( $video_item->id ) ? $video_item->id : null;
-                }
-
-                if ( $video_id && ! isset( $seen_ids[ $video_id ] ) ) {
-                    $seen_ids[ $video_id ] = true;
-                    if ( is_array( $video_item ) ) {
-                        $video_item['partner_cat'] = $normalized_slug;
-                        $videos[]                  = $video_item;
-                    } else {
-                        $video_item->partner_cat = $normalized_slug;
-                        $videos[]                = $video_item;
-                    }
+                    $video_item['partner_cat'] = $normalized_slug;
+                    $videos_for_category[]     = $video_item;
+                } else {
+                    $video_item->partner_cat = $normalized_slug;
+                    $videos_for_category[]   = $video_item;
                 }
             }
 
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
                 error_log( sprintf( '[WPS-LiveJasmin] Brutal search → %s (%d videos)', $category_id, count( (array) $new_videos ) ) );
             }
+
+            if ( ! empty( $videos_for_category ) ) {
+                $videos = $videos_for_category;
+                $multi_category_meta['current_category']      = $raw_category_id;
+                $multi_category_meta['current_category_slug'] = $normalized_slug;
+                $multi_category_meta['count']                 = count( $videos_for_category );
+                $multi_category_meta['next_index']            = $index + 1;
+                $multi_category_meta['has_more']              = $multi_category_meta['next_index'] < $total_categories;
+                $multi_category_meta['completed']             = ! $multi_category_meta['has_more'];
+                break;
+            }
+
+            $multi_category_meta['next_index'] = $index + 1;
+        }
+
+        if ( empty( $videos ) ) {
+            $multi_category_meta['next_index'] = max( $multi_category_meta['next_index'], $total_categories );
+            $multi_category_meta['has_more']   = false;
+            $multi_category_meta['count']      = 0;
+            $multi_category_meta['completed']  = true;
+            $multi_category_meta['auto_continue'] = false;
         }
     } else {
         $search_videos = new LVJM_Search_Videos( $params );
@@ -175,6 +212,15 @@ function lvjm_search_videos( $params = '' ) {
         $videos = $filtered;
     }
 
+    if ( $multi_category_meta['active'] ) {
+        $multi_category_meta['count'] = is_array( $videos ) ? count( $videos ) : 0;
+        if ( $multi_category_meta['count'] <= 0 && $multi_category_meta['has_more'] && ! $multi_category_meta['completed'] ) {
+            $multi_category_meta['auto_continue'] = true;
+        } else {
+            $multi_category_meta['auto_continue'] = false;
+        }
+    }
+
     if ( ! $ajax_call ) {
         return $videos;
     }
@@ -184,6 +230,7 @@ function lvjm_search_videos( $params = '' ) {
             'videos'        => $videos,
             'errors'        => $errors,
             'searched_data' => $searched_data,
+            'multi_category'=> $multi_category_meta,
         )
     );
 

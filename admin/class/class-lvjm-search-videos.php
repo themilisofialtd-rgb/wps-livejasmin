@@ -160,7 +160,7 @@ class LVJM_Search_Videos {
         }
 
         $category_tag         = isset( $this->params['cat_s'] ) ? (string) $this->params['cat_s'] : '';
-        $category_tag_encoded = rawurlencode( $category_tag );
+        $category_tag_encoded = isset( $this->params['cat_s_encoded'] ) ? (string) $this->params['cat_s_encoded'] : rawurlencode( $category_tag );
 
         $this->feed_url = str_replace(
             [
