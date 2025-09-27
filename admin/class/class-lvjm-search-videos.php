@@ -8,6 +8,8 @@
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || die( 'Cheatin&#8217; uh?' );
 
+require_once LVJM_DIR . 'admin/class/class-lvjm-placeholder-parser.php';
+
 /**
  * Search Videos Class.
  *
@@ -96,16 +98,17 @@ class LVJM_Search_Videos {
 	 * @param array $params The params needed to make the search.
 	 * @return void
 	 */
-	public function __construct( $params ) {
-        error_log('[WPS-LiveJasmin] class-lvjm-search-videos.php constructor called');
-        error_log('[WPS-LiveJasmin] class-lvjm-search-videos.php constructor called');
-		global $wp_version;
-		$this->wp_version = $wp_version;
-		$this->params     = $params;
-        error_log('[WPS-LiveJasmin] Search Param cat_s: ' . print_r($this->params['cat_s'], true));
+        public function __construct( $params ) {
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                error_log( '[WPS-LiveJasmin] class-lvjm-search-videos.php constructor called' );
+                error_log( '[WPS-LiveJasmin] Search Param cat_s: ' . ( isset( $params['cat_s'] ) ? print_r( $params['cat_s'], true ) : '' ) );
+        }
+                global $wp_version;
+                $this->wp_version = $wp_version;
+                $this->params     = $params;
 
-		// connecting to API.
-		$api_params = array(
+                // connecting to API.
+                $api_params = array(
 			'license_key'  => WPSCORE()->get_license_key(),
 			'signature'    => WPSCORE()->get_client_signature(),
 			'server_addr'  => WPSCORE()->get_server_addr(),
@@ -115,18 +118,21 @@ class LVJM_Search_Videos {
 			'partner_id'   => $this->params['partner']['id'],
 		);
 
-		$args = array(
-			'timeout'   => 50,
-			'sslverify' => false,
-		);
+                $args = array(
+                        'timeout'   => 50,
+                        'sslverify' => true,
+                );
 
-		$base64_params = base64_encode( wp_json_encode( $api_params ) );
-        error_log('[WPS-LiveJasmin] API Params: ' . print_r($api_params, true));
-        error_log('[WPS-LiveJasmin] API URL: ' . WPSCORE()->get_api_url('lvjm/get_feed', $base64_params));
+                $base64_params = base64_encode( wp_json_encode( $api_params ) );
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                error_log( '[WPS-LiveJasmin] API Params: ' . print_r( $api_params, true ) );
+                error_log( '[WPS-LiveJasmin] API URL: ' . WPSCORE()->get_api_url( 'lvjm/get_feed', $base64_params ) );
+        }
 
-		$response = wp_remote_get( WPSCORE()->get_api_url( 'lvjm/get_feed', $base64_params ), $args );
-		$response = wp_remote_get( WPSCORE()->get_api_url( 'lvjm/get_feed', $base64_params ), $args );
-        error_log('[WPS-LiveJasmin] Raw API Response: ' . wp_remote_retrieve_body($response));
+                $response = wp_remote_get( WPSCORE()->get_api_url( 'lvjm/get_feed', $base64_params ), $args );
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                error_log( '[WPS-LiveJasmin] Raw API Response: ' . wp_remote_retrieve_body( $response ) );
+        }
 
 		if ( ! is_wp_error( $response ) && 'application/json; charset=UTF-8' === $response['headers']['content-type'] ) {
 
@@ -304,10 +310,10 @@ class LVJM_Search_Videos {
 
 		$root_feed_url = $this->get_feed_url_with_orientation();
 
-		$args = array(
-			'timeout'   => 300,
-			'sslverify' => false,
-		);
+                $args = array(
+                        'timeout'   => 300,
+                        'sslverify' => true,
+                );
 
 		$args['user-agent'] = 'WordPress/' . $this->wp_version . '; ' . home_url();
 
@@ -330,7 +336,9 @@ class LVJM_Search_Videos {
 					$this->feed_url = $root_feed_url . $paged . $current_page;
 			}
 
-        error_log('[WPS-LiveJasmin] Final feed URL used: ' . $this->feed_url);
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                error_log( '[WPS-LiveJasmin] Final feed URL used: ' . $this->feed_url );
+        }
 			$response = wp_remote_get( $this->feed_url, $args );
 
 			if ( is_wp_error( $response ) ) {
@@ -441,23 +449,15 @@ class LVJM_Search_Videos {
 	 * @param string $partner_feed_item The partner item.
 	 * @return string The feede info.
 	 */
-	private function get_partner_feed_infos( $partner_feed_item ) {
-		$results = array();
-		preg_match_all( '/<%(.+)%>/U', $partner_feed_item, $results );
+        private function get_partner_feed_infos( $partner_feed_item ) {
+                $saved_partner_options = WPSCORE()->get_product_option( 'LVJM', $this->params['partner']['id'] . '_options' );
+                $context               = array(
+                        'partner_options' => is_array( $saved_partner_options ) ? $saved_partner_options : array(),
+                        'params'          => $this->params,
+                );
 
-		foreach ( (array) $results[1] as $result ) {
-			if ( strpos( $result, 'get_partner_option' ) !== false ) {
-				$saved_partner_options = WPSCORE()->get_product_option( 'LVJM', $this->params['partner']['id'] . '_options' );
-				$option                = str_replace( array( 'get_partner_option("', '")' ), array( '', '' ), $result );
-				$new_result            = '$saved_partner_options["' . $option . '"]';
-				$partner_feed_item     = str_replace( '<%' . $result . '%>', eval( 'return ' . $new_result . ';' ), $partner_feed_item );
-			} else {
-				$partner_feed_item = str_replace( '<%' . $result . '%>', eval( 'return ' . $result . ';' ), $partner_feed_item );
-			}
-		}
-
-		return $partner_feed_item;
-	}
+                return LVJM_Placeholder_Parser::parse( $partner_feed_item, $context );
+        }
 
 	/**
 	 * Get partner feed info from a feed item given.
