@@ -75,22 +75,6 @@ class LVJM_Search_Videos {
 	private $wp_version;
 
 	/**
-	 * Cached partner context for placeholder parsing.
-	 *
-	 * @var array|null $partner_context
-	 * @access private
-	 */
-	private $partner_context = null;
-
-	/**
-	 * Resolved partner credentials keyed by placeholder.
-	 *
-	 * @var array $resolved_partner_credentials
-	 * @access private
-	 */
-	private $resolved_partner_credentials = array();
-
-	/**
 	 * The partner_existing_videos_ids.
 	 *
 	 * @var array $partner_existing_videos_ids
@@ -163,47 +147,29 @@ class LVJM_Search_Videos {
 			} else {
 				// success.
 				if ( isset( $response_body->data->feed_infos ) ) {
-                                        $this->feed_infos = $response_body->data->feed_infos;
-                                        $this->feed_url   = $this->get_partner_feed_infos( $this->feed_infos->feed_url->data );
+					$this->feed_infos = $response_body->data->feed_infos;
+					$this->feed_url   = $this->get_partner_feed_infos( $this->feed_infos->feed_url->data );
 
-                                        $this->get_partner_context();
-                                        $psid       = isset( $this->resolved_partner_credentials['psid'] ) ? $this->resolved_partner_credentials['psid'] : '';
-                                        $access_key = isset( $this->resolved_partner_credentials['accesskey'] ) ? $this->resolved_partner_credentials['accesskey'] : '';
+        // Replace template variables in feed_url
+        $this->feed_url = str_replace(
+            [
+                '<%$this->params["cat_s"]%>',
+                '<%get_partner_option("psid")%>',
+                '<%get_partner_option("accesskey")%>'
+            ],
+            [
+                isset($this->params['cat_s']) ? $this->params['cat_s'] : '',
+                get_option('wps_lj_psid'),
+                get_option('wps_lj_accesskey')
+            ],
+            $this->feed_url
+        );
 
-                                        // Ensure partner credential placeholders are always replaced.
-                                        $this->feed_url = str_replace(
-                                                array(
-                                                        '<%get_partner_option("psid")%>',
-                                                        '<%get_partner_option("accesskey")%>',
-                                                ),
-                                                array(
-                                                        $psid,
-                                                        $access_key,
-                                                ),
-                                                $this->feed_url
-                                        );
-
-                                        if ( empty( $psid ) || empty( $access_key ) ) {
-                                                error_log( '[WPS-LiveJasmin ERROR] Missing PSID or AccessKey – cannot build feed URL.' );
-                                                return false;
-                                        }
-
-                                        // Replace template variables in feed_url.
-                                        $this->feed_url = str_replace(
-                                                '<%$this->params["cat_s"]%>',
-                                                isset( $this->params['cat_s'] ) ? $this->params['cat_s'] : '',
-                                                $this->feed_url
-                                        );
-
-                                        // Append performer filter if provided.
-                                        if ( isset( $this->params['performer'] ) && ! empty( $this->params['performer'] ) ) {
-                                                $name = urlencode( $this->params['performer'] );
-                                                $this->feed_url .= '&forcedPerformers[]=' . $name;
-                                        }
-
-                                        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                                                error_log( '[WPS-LiveJasmin] Final feed URL after replacements: ' . $this->feed_url );
-                                        }
+        // Append performer filter if provided
+        if ( isset($this->params['performer']) && !empty($this->params['performer']) ) {
+            $name = urlencode($this->params['performer']);
+            $this->feed_url .= '&forcedPerformers[]=' . $name;
+        }
 
 					if ( ! $this->feed_url ) {
 						WPSCORE()->write_log( 'error', 'Connection to Partner\'s API failed (feed url: <code>' . $this->feed_url . '</code> partner id: <code>:' . $this->params['partner']['id'] . '</code>)', __FILE__, __LINE__ );
@@ -484,48 +450,13 @@ class LVJM_Search_Videos {
 	 * @return string The feede info.
 	 */
         private function get_partner_feed_infos( $partner_feed_item ) {
-                $context = $this->get_partner_context();
+                $saved_partner_options = WPSCORE()->get_product_option( 'LVJM', $this->params['partner']['id'] . '_options' );
+                $context               = array(
+                        'partner_options' => is_array( $saved_partner_options ) ? $saved_partner_options : array(),
+                        'params'          => $this->params,
+                );
 
                 return LVJM_Placeholder_Parser::parse( $partner_feed_item, $context );
-        }
-
-        /**
-         * Build and cache partner context and credentials for placeholder parsing.
-         *
-         * @since 1.0.0
-         *
-         * @return array
-         */
-        private function get_partner_context() {
-                if ( null === $this->partner_context ) {
-                        $saved_partner_options = WPSCORE()->get_product_option( 'LVJM', $this->params['partner']['id'] . '_options' );
-                        $saved_partner_options = is_array( $saved_partner_options ) ? $saved_partner_options : array();
-
-                        $psid_data       = lvjm_resolve_partner_credential( $saved_partner_options, 'psid', 'PSID', 'PSID' );
-                        $access_key_data = lvjm_resolve_partner_credential( $saved_partner_options, 'accesskey', 'accessKey', 'Access Key' );
-
-                        if ( '' !== $psid_data['value'] ) {
-                                $saved_partner_options['psid'] = $psid_data['value'];
-                                $saved_partner_options['PSID'] = $psid_data['value'];
-                        }
-
-                        if ( '' !== $access_key_data['value'] ) {
-                                $saved_partner_options['accesskey'] = $access_key_data['value'];
-                                $saved_partner_options['accessKey'] = $access_key_data['value'];
-                        }
-
-                        $this->resolved_partner_credentials = array(
-                                'psid'      => isset( $psid_data['value'] ) ? $psid_data['value'] : '',
-                                'accesskey' => isset( $access_key_data['value'] ) ? $access_key_data['value'] : '',
-                        );
-
-                        $this->partner_context = array(
-                                'partner_options' => $saved_partner_options,
-                                'params'          => $this->params,
-                        );
-                }
-
-                return $this->partner_context;
         }
 
 	/**
