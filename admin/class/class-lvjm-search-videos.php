@@ -321,14 +321,16 @@ class LVJM_Search_Videos {
 	 * @return bool true if there are no error, false if not.
 	 */
 	private function retrieve_videos_from_json_feed() {
-		$existing_ids           = $this->get_partner_existing_ids();
-		$array_valid_videos     = array();
-		$counters               = array(
-			'valid_videos'    => 0,
-			'invalid_videos'  => 0,
-			'existing_videos' => 0,
-			'removed_videos'  => 0,
-		);
+                $existing_ids           = $this->get_partner_existing_ids();
+                $existing_lookup        = array_flip( (array) $existing_ids['partner_existing_videos_ids'] );
+                $removed_lookup         = array_flip( (array) $existing_ids['partner_unwanted_videos_ids'] );
+                $array_valid_videos     = array();
+                $counters               = array(
+                        'valid_videos'    => 0,
+                        'invalid_videos'  => 0,
+                        'existing_videos' => 0,
+                        'removed_videos'  => 0,
+                );
 		$videos_details         = array();
 		$count_valid_feed_items = 0;
 		$end                    = false;
@@ -416,31 +418,54 @@ class LVJM_Search_Videos {
 			while ( false === $page_end ) {
 				$feed_item = new LVJM_Json_Item( $array_feed[ $current_item ] );
 				$feed_item->init( $this->params, $this->feed_infos );
-				if ( $feed_item->is_valid() ) {
-					if ( ! in_array( $feed_item->get_id(), (array) $existing_ids['partner_all_videos_ids'], true ) ) {
-						$array_valid_videos[] = (array) $feed_item->get_data_for_json( $count_valid_feed_items );
-						$videos_details[]     = array(
-							'id'       => $feed_item->get_id(),
-							'response' => 'Success',
-						);
-						++$counters['valid_videos'];
-						++$count_valid_feed_items;
-					} elseif ( in_array( $feed_item->get_id(), (array) $existing_ids['partner_existing_videos_ids'], true ) ) {
-							$videos_details[] = array(
-								'id'       => $feed_item->get_id(),
-								'response' => 'Already imported',
-							);
-							++$counters['existing_videos'];
-					} elseif ( in_array( $feed_item->get_id(), (array) $existing_ids['partner_unwanted_videos_ids'], true ) ) {
-						$videos_details[] = array(
-							'id'       => $feed_item->get_id(),
-							'response' => 'You removed it from search results',
-						);
-						++$counters['removed_videos'];
-					}
-				} else {
-					$videos_details[] = array(
-						'id'       => $feed_item->get_id(),
+                                if ( $feed_item->is_valid() ) {
+                                        $video_id   = $feed_item->get_id();
+                                        $video_data = (array) $feed_item->get_data_for_json( $count_valid_feed_items );
+                                        $status     = 'valid';
+
+                                        if ( isset( $existing_lookup[ $video_id ] ) ) {
+                                                $status                       = 'existing';
+                                                $video_data['already_imported'] = true;
+                                                $video_data['checked']          = false;
+                                        } elseif ( isset( $removed_lookup[ $video_id ] ) ) {
+                                                $status                       = 'removed';
+                                                $video_data['already_imported'] = false;
+                                                $video_data['checked']          = false;
+                                        } else {
+                                                $video_data['already_imported'] = false;
+                                        }
+
+                                        $video_data['import_status'] = $status;
+                                        $array_valid_videos[]        = $video_data;
+
+                                        switch ( $status ) {
+                                                case 'existing':
+                                                        $videos_details[] = array(
+                                                                'id'       => $video_id,
+                                                                'response' => 'Already imported',
+                                                        );
+                                                        ++$counters['existing_videos'];
+                                                        break;
+                                                case 'removed':
+                                                        $videos_details[] = array(
+                                                                'id'       => $video_id,
+                                                                'response' => 'You removed it from search results',
+                                                        );
+                                                        ++$counters['removed_videos'];
+                                                        break;
+                                                default:
+                                                        $videos_details[] = array(
+                                                                'id'       => $video_id,
+                                                                'response' => 'Success',
+                                                        );
+                                                        ++$counters['valid_videos'];
+                                                        break;
+                                        }
+
+                                        ++$count_valid_feed_items;
+                                } else {
+                                        $videos_details[] = array(
+                                                'id'       => $feed_item->get_id(),
 						'response' => 'Invalid',
 					);
 					++$counters['invalid_videos'];

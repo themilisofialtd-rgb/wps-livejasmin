@@ -93,7 +93,6 @@ function lvjm_search_videos( $params = '' ) {
     }
 
     if ( '' !== $performer ) {
-        $filtered = array();
         if ( ! function_exists( 'lvjm_get_embed_and_actors' ) ) {
             $actions_file = dirname( __FILE__ ) . '/ajax-get-embed-and-actors.php';
             if ( file_exists( $actions_file ) ) {
@@ -101,8 +100,7 @@ function lvjm_search_videos( $params = '' ) {
             }
         }
 
-        foreach ( (array) $videos as $video_item ) {
-            $match  = false;
+        foreach ( (array) $videos as $index => $video_item ) {
             $actors = '';
             if ( is_array( $video_item ) ) {
                 $actors = isset( $video_item['actors'] ) ? (string) $video_item['actors'] : '';
@@ -110,19 +108,16 @@ function lvjm_search_videos( $params = '' ) {
                 $actors = isset( $video_item->actors ) ? (string) $video_item->actors : '';
             }
 
-            if ( '' !== $actors && false !== stripos( $actors, $performer ) ) {
-                $match = true;
-            } elseif ( function_exists( 'lvjm_get_embed_and_actors' ) ) {
+            if ( '' === $actors && function_exists( 'lvjm_get_embed_and_actors' ) ) {
                 $video_id = is_array( $video_item ) ? ( $video_item['id'] ?? '' ) : ( isset( $video_item->id ) ? $video_item->id : '' );
                 if ( $video_id ) {
                     try {
                         $more = lvjm_get_embed_and_actors( array( 'video_id' => $video_id ) );
-                        if ( ! empty( $more['performer_name'] ) && false !== stripos( $more['performer_name'], $performer ) ) {
-                            $match = true;
+                        if ( ! empty( $more['performer_name'] ) ) {
                             if ( is_array( $video_item ) ) {
-                                $video_item['actors'] = $more['performer_name'];
+                                $videos[ $index ]['actors'] = $more['performer_name'];
                             } else {
-                                $video_item->actors = $more['performer_name'];
+                                $videos[ $index ]->actors = $more['performer_name'];
                             }
                         }
                     } catch ( \Throwable $exception ) {
@@ -130,12 +125,7 @@ function lvjm_search_videos( $params = '' ) {
                     }
                 }
             }
-
-            if ( $match ) {
-                $filtered[] = $video_item;
-            }
         }
-        $videos = $filtered;
     }
 
     if ( ! $ajax_call ) {

@@ -100,6 +100,14 @@ function LVJM_pageImportVideos() {
                 selectedCat: '',
                 selectedKW: '',
                 selectedPerformer: '',
+                performerSearchActive: false,
+                performerCategoryQueue: [],
+                performerSearchIndex: 0,
+                performerSeenIds: {},
+                performerSearchPartner: null,
+                performerSearchMethod: '',
+                performerSearchFeedId: '',
+                performerFallbackRan: false,
                 selectedWPCat: 0,
                 selectedPostsStatus: '',
                 newWpCategoryName: '',
@@ -258,6 +266,9 @@ function LVJM_pageImportVideos() {
                     return this.videos.length;
                 },
                 searchBtnClass: function () {
+                    if (this.selectedPerformer && this.selectedPerformer.trim() !== '') {
+                        return '';
+                    }
                     if (this.selectedCat == '' && this.selectedKW == '') {
                         return 'disabled';
                     }
@@ -271,7 +282,7 @@ function LVJM_pageImportVideos() {
                 },
                 searchButtonTooltip: function () {
                     self = this;
-                    if( this.selectedCat !== '' || this.selectedKW !== '' ) return '';
+                    if( this.selectedCat !== '' || this.selectedKW !== '' || (this.selectedPerformer && this.selectedPerformer.trim() !== '') ) return '';
 
                     return this.data.objectL10n.select_cat_from + ' ' + lodash.find(this.data.partners, function (p) {
                         return p.id == self.selectedPartner
@@ -330,9 +341,222 @@ function LVJM_pageImportVideos() {
                 }
             },
             methods: {
+                prepareVideoForDisplay: function (video, fallbackCat, extra) {
+                    extra = extra || {};
+                    return {
+                        id: video.id,
+                        title: video.title,
+                        thumb_url: video.thumb_url,
+                        thumbs_urls: video.thumbs_urls,
+                        trailer_url: video.trailer_url,
+                        desc: video.desc,
+                        embed: video.embed,
+                        tracking_url: video.tracking_url,
+                        duration: video.duration,
+                        quality: video.quality,
+                        isHd: video.isHd,
+                        uploader: video.uploader,
+                        actors: video.actors,
+                        tags: video.tags,
+                        video_url: video.video_url,
+                        partner_cat: video.partner_cat || fallbackCat,
+                        checked: typeof video.checked !== 'undefined' ? video.checked : true,
+                        grabbed: false,
+                        import_status: video.import_status || 'valid',
+                        already_imported: !!video.already_imported,
+                        loading: {
+                            removing: false
+                        },
+                        search_category_name: extra.categoryName || '',
+                        search_origin: extra.origin || ''
+                    };
+                },
+                appendVideosFromResponse: function (videosList, fallbackCat, options) {
+                    var self = this;
+                    var added = 0;
+                    options = options || {};
+                    var trackSeen = !!options.trackSeen;
+                    var onlyNew = !!options.onlyNew;
+                    lodash.each(videosList, function (video) {
+                        var prepared = self.prepareVideoForDisplay(video, fallbackCat, {
+                            categoryName: options.categoryName,
+                            origin: options.origin
+                        });
+
+                        if (trackSeen) {
+                            if (!self.performerSeenIds) {
+                                self.performerSeenIds = {};
+                            }
+
+                            if (!self.performerSeenIds[prepared.id]) {
+                                self.performerSeenIds[prepared.id] = true;
+                            } else if (onlyNew) {
+                                return;
+                            }
+                        }
+
+                        if (!prepared.loading) {
+                            prepared.loading = { removing: false };
+                        }
+
+                        self.videos.push(prepared);
+                        added++;
+                    });
+                    return added;
+                },
+                flattenPartnerCategories: function () {
+                    var categories = [];
+                    lodash.each(this.partnerCats, function (cat) {
+                        if (cat.id === 'optgroup' && cat.sub_cats) {
+                            lodash.each(cat.sub_cats, function (sub) {
+                                if (sub.id && sub.id !== 'all_straight') {
+                                    categories.push({ id: sub.id, name: sub.name });
+                                }
+                            });
+                        } else if (cat.id && cat.id !== 'optgroup' && cat.id !== 'all_straight') {
+                            categories.push({ id: cat.id, name: cat.name });
+                        }
+                    });
+                    return categories;
+                },
+                startPerformerSearch: function () {
+                    this.performerCategoryQueue = this.flattenPartnerCategories();
+                    this.performerSearchIndex = 0;
+                    this.performerSeenIds = {};
+                    this.performerSearchActive = true;
+
+                    if (!this.performerCategoryQueue.length) {
+                        this.runPerformerFallback();
+                        return;
+                    }
+
+                    this.performerSearchNextCategory();
+                },
+                performerSearchNextCategory: function () {
+                    var self = this;
+                    if (!this.performerSearchActive) {
+                        return;
+                    }
+
+                    if (this.performerSearchIndex >= this.performerCategoryQueue.length) {
+                        this.runPerformerFallback();
+                        return;
+                    }
+
+                    var category = this.performerCategoryQueue[this.performerSearchIndex];
+                    this.performerSearchIndex++;
+                    this.searchingVideos = true;
+
+                    var requestCat = category.id;
+                    var payload = {
+                        action: 'lvjm_search_videos',
+                        cat_s: requestCat,
+                        feed_id: this.performerSearchFeedId,
+                        from: 'manual',
+                        kw: 0,
+                        limit: this.data.videosLimit,
+                        method: this.performerSearchMethod,
+                        multi_category_search: 0,
+                        nonce: LVJM_import_videos.ajax.nonce,
+                        original_cat_s: requestCat ? requestCat.replace('&', '%%') : '',
+                        partner: this.performerSearchPartner,
+                        performer: this.selectedPerformer
+                    };
+
+                    this.$http.post(
+                        LVJM_import_videos.ajax.url,
+                        payload,
+                        { emulateJSON: true }
+                    ).then(function (response) {
+                        if (lodash.isEmpty(response.body.errors)) {
+                            self.searchedData = response.body.searched_data;
+                            var added = self.appendVideosFromResponse(response.body.videos, requestCat, {
+                                categoryName: category.name,
+                                origin: 'category',
+                                trackSeen: true
+                            });
+                            self.videosHasBeenSearched = true;
+                            self.searchingVideos = false;
+
+                            var hasNext = self.performerSearchIndex < self.performerCategoryQueue.length;
+                            if (hasNext) {
+                                var message = 'Found ' + added + ' videos in ' + category.name + ' for performer ' + self.selectedPerformer + '. Continue to next category? (Yes / No)';
+                                if (window.confirm(message)) {
+                                    self.performerSearchNextCategory();
+                                } else {
+                                    self.runPerformerFallback();
+                                }
+                            } else {
+                                self.runPerformerFallback();
+                            }
+                        } else {
+                            self.videosSearchedErrors = response.body.errors;
+                            self.searchingVideos = false;
+                            self.finishPerformerSearch();
+                        }
+                    }, function (response) {
+                        console.error(response);
+                        self.searchingVideos = false;
+                        self.finishPerformerSearch();
+                    });
+                },
+                runPerformerFallback: function () {
+                    var self = this;
+                    if (this.performerFallbackRan) {
+                        this.finishPerformerSearch();
+                        return;
+                    }
+
+                    this.performerFallbackRan = true;
+                    this.searchingVideos = true;
+
+                    this.$http.post(
+                        LVJM_import_videos.ajax.url,
+                        {
+                            action: 'lvjm_search_videos',
+                            cat_s: '',
+                            feed_id: this.performerSearchFeedId,
+                            from: 'manual',
+                            kw: 0,
+                            limit: this.data.videosLimit,
+                            method: this.performerSearchMethod,
+                            multi_category_search: 0,
+                            nonce: LVJM_import_videos.ajax.nonce,
+                            original_cat_s: '',
+                            partner: this.performerSearchPartner,
+                            performer: this.selectedPerformer
+                        },
+                        { emulateJSON: true }
+                    ).then(function (response) {
+                        if (lodash.isEmpty(response.body.errors)) {
+                            self.searchedData = response.body.searched_data;
+                            self.appendVideosFromResponse(response.body.videos, '', {
+                                categoryName: 'All Categories',
+                                origin: 'fallback',
+                                trackSeen: true,
+                                onlyNew: true
+                            });
+                        } else {
+                            self.videosSearchedErrors = response.body.errors;
+                        }
+                    }, function (response) {
+                        console.error(response);
+                    }).then(function () {
+                        self.finishPerformerSearch();
+                    });
+                },
+                finishPerformerSearch: function () {
+                    this.performerSearchActive = false;
+                    this.searchingVideos = false;
+                    this.videosHasBeenSearched = true;
+                    jQuery('[data-id="sort_partners"]').prop("disabled", false);
+                    jQuery('[data-id="cat_s_select"]').prop("disabled", false);
+                    jQuery('[data-id="partner_select"]').prop("disabled", false);
+                    stickNav();
+                },
                 loadPartnerCats: function () {
                     this.partnerCatsLoading = true;
-                    
+
                     this.$http.post(
 
                             LVJM_import_videos.ajax.url, {
@@ -400,7 +624,7 @@ function LVJM_pageImportVideos() {
 
                     var cat_s = '';
                     var kw = '';
-                    var partnerId = '';
+                    var partner = '';
 
                     //reset searching states
                     this.videos = [];
@@ -450,9 +674,28 @@ function LVJM_pageImportVideos() {
                     //reset tooltips states
                     //jQuery('[rel=tooltip]').tooltip('hide');
 
-                    
+                    this.performerSearchActive = false;
+                    this.performerCategoryQueue = [];
+                    this.performerSearchIndex = 0;
+                    this.performerSeenIds = {};
+                    this.performerSearchPartner = partner;
+                    this.performerSearchMethod = method;
+                    this.performerSearchFeedId = feedId || '';
+                    this.performerFallbackRan = false;
+
+                    if (method == 'create') {
+                        this.firstImport = true;
+                    } else {
+                        this.firstImport = false;
+                    }
+
+                    if (this.selectedPerformer && this.selectedPerformer.trim() !== '') {
+                        this.startPerformerSearch();
+                        return;
+                    }
+
                     this.$http.post(
-    
+
                             LVJM_import_videos.ajax.url, {
                                 action: 'lvjm_search_videos',
                                 cat_s: cat_s,
@@ -470,45 +713,11 @@ function LVJM_pageImportVideos() {
                                 emulateJSON: true
                             })
                         .then(function (response) {
-                            var videos = this.videos;
                             if (lodash.isEmpty(response.body.errors)) {
                                 this.searchedData = response.body.searched_data;
-                                lodash.each(response.body.videos, function (video) {
-                                    videos.push({
-                                        id: video.id,
-                                        title: video.title,
-                                        thumb_url: video.thumb_url,
-//                                        thumbs_urls: video.thumbs_urls.split(','),
-                                        thumbs_urls: video.thumbs_urls,
-                                        trailer_url: video.trailer_url,
-                                        desc: video.desc,
-                                        embed: video.embed,
-                                        tracking_url: video.tracking_url,
-                                        duration: video.duration,
-                                        quality: video.quality,
-                                        isHd: video.isHd,
-                                        uploader: video.uploader,
-                                        actors: video.actors,
-                                        tags: video.tags,
-                                        video_url: video.video_url,
-                                        partner_cat: video.partner_cat || cat_s,
-                                        checked: video.checked,
-                                        grabbed: false,
-                                        loading: {
-                                            removing: false
-                                        }
-                                    });
-                                });
+                                this.appendVideosFromResponse(response.body.videos, cat_s);
                             } else {
                                 this.videosSearchedErrors = response.body.errors;
-                            }
-                            delete errors;
-                            delete response;
-                            delete videos;
-                            if (method == 'create') {
-                                this.firstImport = true;
-                            } else {
-                                this.firstImport = false;
                             }
                         }, function (response) {
                             // error callback
