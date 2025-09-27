@@ -378,18 +378,17 @@ class LVJM_Search_Videos {
 
                         $log_performer = isset( $this->params['performer'] ) ? sanitize_text_field( (string) $this->params['performer'] ) : '';
                         $log_category  = isset( $this->params['cat_s'] ) ? sanitize_text_field( (string) $this->params['cat_s'] ) : '';
+                        $log_feed_url  = $this->feed_url ? esc_url_raw( (string) $this->feed_url ) : '';
+
                         error_log(
                                 sprintf(
-                                        '[WPS-LiveJasmin] Fetching page %d (performer: %s, category: %s)',
+                                        '[WPS-LiveJasmin] Fetching page %d | Final feed URL: %s | performer: %s | category: %s',
                                         $current_page,
+                                        '' === $log_feed_url ? 'n/a' : $log_feed_url,
                                         '' === $log_performer ? 'n/a' : $log_performer,
                                         '' === $log_category ? 'n/a' : $log_category
                                 )
                         );
-
-        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( '[WPS-LiveJasmin] Final feed URL used: ' . $this->feed_url );
-        }
                         $response = wp_remote_get( $this->feed_url, $args );
 
 			if ( is_wp_error( $response ) ) {
@@ -411,6 +410,27 @@ class LVJM_Search_Videos {
 
                         if ( isset( $response_body['data']['pagination']['totalPages'] ) ) {
                                 $total_pages = (int) $response_body['data']['pagination']['totalPages'];
+                        }
+
+                        if ( '' !== $log_performer ) {
+                                $category_for_log = $log_category;
+                                if ( '' === $category_for_log && isset( $this->params['category'] ) ) {
+                                        $category_for_log = sanitize_text_field( (string) $this->params['category'] );
+                                }
+
+                                $results_count = 0;
+                                if ( isset( $response_body['data']['videos'] ) && is_array( $response_body['data']['videos'] ) ) {
+                                        $results_count = count( $response_body['data']['videos'] );
+                                }
+
+                                error_log(
+                                        sprintf(
+                                                '[WPS-LiveJasmin] Testing performer: %s | category: %s | results: %d',
+                                                $log_performer,
+                                                '' === $category_for_log ? 'n/a' : $category_for_log,
+                                                $results_count
+                                        )
+                                );
                         }
 
                         if ( $response_body['status'] && 'ERROR' === $response_body['status'] ) {
