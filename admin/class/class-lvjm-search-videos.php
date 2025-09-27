@@ -105,7 +105,8 @@ class LVJM_Search_Videos {
         }
                 global $wp_version;
                 $this->wp_version = $wp_version;
-                $this->params     = $params;
+               $this->params     = $params;
+               $this->errors     = array();
 
                 // connecting to API.
                 $api_params = array(
@@ -167,10 +168,16 @@ class LVJM_Search_Videos {
                                                 $access_key = sanitize_text_field( (string) get_option( 'wps_lj_accesskey' ) );
                                         }
 
-                                        if ( empty( $psid ) || empty( $access_key ) ) {
-                                                error_log( '[WPS-LiveJasmin ERROR] Missing PSID or AccessKey – cannot build feed URL.' );
-                                                return;
-                                        }
+                                       if ( empty( $psid ) || empty( $access_key ) ) {
+                                               error_log( '[WPS-LiveJasmin ERROR] Missing PSID or AccessKey – cannot build feed URL.' );
+                                               $this->errors = array(
+                                                       'code'     => 'missing_credentials',
+                                                       'message'  => __( 'Your AWEmpire PSID or Access Key is missing.', 'wps-livejasmin' ),
+                                                       'solution' => __( 'Please add both credentials in the LiveJasmin settings.', 'wps-livejasmin' ),
+                                               );
+
+                                               return false;
+                                       }
 
                                         $base_url  = 'https://pt.ptawe.com/api/video-promotion/v1/list';
                                         $client_ip = lvjm_get_client_ip_address();
