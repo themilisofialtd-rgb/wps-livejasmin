@@ -1,6 +1,8 @@
 <?php
 
-error_log('[WPS-LiveJasmin] Import videos page accessed');
+if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+        error_log( '[WPS-LiveJasmin] Import videos page accessed' );
+}
 /**
  * Admin Import Page plugin file.
  *

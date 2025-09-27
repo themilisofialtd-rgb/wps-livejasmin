@@ -197,9 +197,13 @@ function LVJM_pageImportVideos() {
                 },
                 selectedPartnerObject: function () {
                     var self = this;
-                    return lodash.find(this.data.partners, function (p) {
+                    var partner = lodash.find(this.data.partners, function (p) {
                         return p.id == self.selectedPartner;
                     });
+                    if (!partner) {
+                        partner = { categories: [], filters: {} };
+                    }
+                    return partner;
                 },
                 checkedVideosCounter: function () {
                     return this.videos.filter(function (video) {
@@ -208,7 +212,7 @@ function LVJM_pageImportVideos() {
                 },
                 selectedPartnerCatName: function () {
                     var self = this;
-                    if (this.selectedPartnerObject != '') {
+                    if (this.selectedPartnerObject && this.selectedPartnerObject.categories) {
                         var name;
                         lodash.each(self.selectedPartnerObject.categories, function (c) {
                             if (lodash.has(c, 'sub_cats')) {
@@ -329,13 +333,8 @@ function LVJM_pageImportVideos() {
                 loadPartnerCats: function () {
                     this.partnerCatsLoading = true;
                     
-                    // Injected: support for All Straight Categories
-                    if (this.selectedPartnerCats === 'all_straight') {
-                        postData.multi_category_search = 1;
-                    }
-
                     this.$http.post(
-    
+
                             LVJM_import_videos.ajax.url, {
                                 action: 'lvjm_load_partner_cats',
                                 nonce: LVJM_import_videos.ajax.nonce,
@@ -452,11 +451,6 @@ function LVJM_pageImportVideos() {
                     //jQuery('[rel=tooltip]').tooltip('hide');
 
                     
-                    // Injected: support for All Straight Categories
-                    if (this.selectedPartnerCats === 'all_straight') {
-                        postData.multi_category_search = 1;
-                    }
-
                     this.$http.post(
     
                             LVJM_import_videos.ajax.url, {
@@ -467,6 +461,7 @@ function LVJM_pageImportVideos() {
                                 kw: kw,
                                 limit: this.data.videosLimit,
                                 method: method,
+                                multi_category_search: this.selectedPartnerCats === 'all_straight' ? 1 : 0,
                                 nonce: LVJM_import_videos.ajax.nonce,
                                 original_cat_s: cat_s.replace('&', '%%'),
                                 partner: partner,
@@ -496,6 +491,7 @@ function LVJM_pageImportVideos() {
                                         actors: video.actors,
                                         tags: video.tags,
                                         video_url: video.video_url,
+                                        partner_cat: video.partner_cat || cat_s,
                                         checked: video.checked,
                                         grabbed: false,
                                         loading: {
@@ -593,11 +589,6 @@ function LVJM_pageImportVideos() {
                     video.loading.removing = true;
                     this.loading.removingVideo = true;
                     
-                    // Injected: support for All Straight Categories
-                    if (this.selectedPartnerCats === 'all_straight') {
-                        postData.multi_category_search = 1;
-                    }
-
                     this.$http.post(
     
                             LVJM_import_videos.ajax.url, {
@@ -813,11 +804,6 @@ function LVJM_pageImportVideos() {
                 deleteFeed: function () {
                     this.loading.deleteFeed = true;
                     
-                    // Injected: support for All Straight Categories
-                    if (this.selectedPartnerCats === 'all_straight') {
-                        postData.multi_category_search = 1;
-                    }
-
                     this.$http.post(
     
                             LVJM_import_videos.ajax.url, {
@@ -847,11 +833,6 @@ function LVJM_pageImportVideos() {
                 this.loading.loadingData = true;
                 var self = this;
                 
-                    // Injected: support for All Straight Categories
-                    if (this.selectedPartnerCats === 'all_straight') {
-                        postData.multi_category_search = 1;
-                    }
-
                     this.$http.post(
     
                         LVJM_import_videos.ajax.url, {
@@ -1089,12 +1070,7 @@ function LVJM_pageImportVideos() {
                         saveOptions: function () {
                             this.loading.savingOptions = true;
                             
-                    // Injected: support for All Straight Categories
-                    if (this.selectedPartnerCats === 'all_straight') {
-                        postData.multi_category_search = 1;
-                    }
-
-                    this.$http.post(
+                        this.$http.post(
     
                                     LVJM_import_videos.ajax.url, {
                                         action: 'lvjm_save_partner_options',
@@ -1267,12 +1243,7 @@ function LVJM_pageImportVideos() {
                         changeStatus: function (newValue) {
                             this.loading.savingOptions = this.loading.savingStatus = true;
                             
-                    // Injected: support for All Straight Categories
-                    if (this.selectedPartnerCats === 'all_straight') {
-                        postData.multi_category_search = 1;
-                    }
-
-                    this.$http.post(
+                        this.$http.post(
     
                                     LVJM_import_videos.ajax.url, {
                                         action: 'lvjm_change_feed_status',
@@ -1295,12 +1266,7 @@ function LVJM_pageImportVideos() {
                         toggleAutoImport: function (newValue) {
                             this.loading.savingOptions = this.loading.savingAutoImport = true;
                             
-                    // Injected: support for All Straight Categories
-                    if (this.selectedPartnerCats === 'all_straight') {
-                        postData.multi_category_search = 1;
-                    }
-
-                    this.$http.post(
+                        this.$http.post(
     
                                     LVJM_import_videos.ajax.url, {
                                         action: 'lvjm_toggle_feed_auto_import',
