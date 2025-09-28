@@ -411,24 +411,28 @@ public function get_whitelabel_id_from_url( $url ) {
 		private function order_categories( $categories ) {
 			$ordered_cats = array();
 			$i            = 0;
-			foreach ( $categories as $cat_id => $cat_name ) {
-				if ( strpos( $cat_id, 'optgroup' ) !== false ) {
-					$cat_id_explode     = explode( '::', $cat_id );
-					$ordered_cats[ $i ] = array(
-						'id'   => 'optgroup',
-						'name' => end( $cat_id_explode ),
-					);
-					foreach ( (array) $cat_name as $sub_cat_id => $sub_cat_name ) {
-						$ordered_cats[ $i ]['sub_cats'][] = array(
-							'id'   => $sub_cat_id,
-							'name' => $sub_cat_name,
-						);
-					}
-				} else {
-					$ordered_cats[ $i ] = array(
-						'id'   => $cat_id,
-						'name' => $cat_name,
-					);
+                        foreach ( $categories as $cat_id => $cat_name ) {
+                                if ( strpos( $cat_id, 'optgroup' ) !== false ) {
+                                        $cat_id_explode         = explode( '::', $cat_id );
+                                        $orientation_label      = end( $cat_id_explode );
+                                        $orientation_identifier = strtolower( $orientation_label );
+                                        $ordered_cats[ $i ]     = array(
+                                                'id'          => 'optgroup',
+                                                'name'        => $orientation_label,
+                                                'orientation' => $orientation_identifier,
+                                        );
+                                        foreach ( (array) $cat_name as $sub_cat_id => $sub_cat_name ) {
+                                                $ordered_cats[ $i ]['sub_cats'][] = array(
+                                                        'id'          => $sub_cat_id,
+                                                        'name'        => $sub_cat_name,
+                                                        'orientation' => $orientation_identifier,
+                                                );
+                                        }
+                                } else {
+                                        $ordered_cats[ $i ] = array(
+                                                'id'   => $cat_id,
+                                                'name' => $cat_name,
+                                        );
 				}
 				++$i;
 			}

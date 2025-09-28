@@ -443,33 +443,39 @@ function LVJM_pageImportVideos() {
                     options = options || {};
                     var onlyStraight = !!options.onlyStraight;
                     var categories = [];
-                    var isStraight = function (item) {
+                    var targetOrientation = 'straight';
+                    var getOrientation = function (item) {
                         if (!item) {
-                            return false;
+                            return '';
                         }
-                        var label = (item.name || '').toString().toLowerCase();
-                        var identifier = (item.id || '').toString().toLowerCase();
-                        return label.indexOf('straight') !== -1 || identifier.indexOf('straight') !== -1;
+                        var orientation = item.orientation || '';
+                        return orientation.toString().toLowerCase();
                     };
 
                     lodash.each(this.partnerCats, function (cat) {
+                        if (!cat || !cat.id) {
+                            return;
+                        }
+
+                        var catOrientation = getOrientation(cat);
+
                         if (cat.id === 'optgroup' && cat.sub_cats) {
-                            var groupIsStraight = !onlyStraight || isStraight(cat);
-                            if (!groupIsStraight) {
+                            if (onlyStraight && catOrientation !== targetOrientation) {
                                 return;
                             }
 
                             lodash.each(cat.sub_cats, function (sub) {
-                                if (!sub.id || sub.id === 'all_straight') {
+                                if (!sub || !sub.id || sub.id === 'all_straight') {
                                     return;
                                 }
 
-                                if (!onlyStraight || groupIsStraight || isStraight(sub)) {
+                                var subOrientation = getOrientation(sub) || catOrientation;
+                                if (!onlyStraight || subOrientation === targetOrientation) {
                                     categories.push({ id: sub.id, name: sub.name });
                                 }
                             });
-                        } else if (cat.id && cat.id !== 'optgroup' && cat.id !== 'all_straight') {
-                            if (!onlyStraight || isStraight(cat)) {
+                        } else if (cat.id !== 'all_straight') {
+                            if (!onlyStraight || catOrientation === targetOrientation) {
                                 categories.push({ id: cat.id, name: cat.name });
                             }
                         }
