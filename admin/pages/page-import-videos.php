@@ -163,8 +163,15 @@ function lvjm_import_videos_page() {
 														<button class="btn btn-default" disabled><i class="fa fa-check" aria-hidden="true"></i> <?php esc_html_e( 'Search done!', 'lvjm_lang' ); ?></button>
 													</span>
 													<button v-show="!searchingVideos && !videosHasBeenSearched" v-on:click.prevent="searchVideos('create')" class="btn btn-info" v-bind:class="searchBtnClass" rel="tooltip" data-placement="top" v-bind:data-original-title="searchButtonTooltip"><i class="fa fa-search" aria-hidden="true"></i> <?php esc_html_e( 'Search videos', 'lvjm_lang' ); ?></button>
-													<button v-show="searchingVideos" disabled="disabled" class="btn btn-info"><i class="fa fa-spinner fa-pulse" aria-hidden="true"></i> <?php esc_html_e( 'Searching videos...', 'lvjm_lang' ); ?></button>
-													<?php /* translators: %s: number of videos in the search results */ ?>
+                                                                                                        <button v-show="searchingVideos" disabled="disabled" class="btn btn-info"><i class="fa fa-spinner fa-pulse" aria-hidden="true"></i> <?php esc_html_e( 'Searching videos...', 'lvjm_lang' ); ?></button>
+                                                                                                        <p class="text-info" v-if="performerSearchActive && currentSearchCategoryLabel">
+                                                                                                                <strong><?php esc_html_e( 'Currently searching category', 'lvjm_lang' ); ?></strong>:
+                                                                                                                {{ currentSearchCategoryLabel }}
+                                                                                                                <span v-if="currentSearchCategoryTotal > 0">
+                                                                                                                        ({{ currentSearchCategoryIndex + 1 }} / {{ currentSearchCategoryTotal }})
+                                                                                                                </span>
+                                                                                                        </p>
+                                                                                                        <?php /* translators: %s: number of videos in the search results */ ?>
                                                                                                        <small><i class="fa fa-info-circle" aria-hidden="true"></i> <?php printf( esc_html__( 'Each search displays up to %s videos at a time, including previously imported ones (marked as ✅ Already Imported).', 'lvjm_lang' ), '{{data.videosLimit}}' ); ?></small>
 												</div>
 											</div>

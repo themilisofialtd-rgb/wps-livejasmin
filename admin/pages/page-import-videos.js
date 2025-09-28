@@ -143,6 +143,10 @@ function LVJM_pageImportVideos() {
                 performerSearchFeedId: '',
                 performerFallbackRan: false,
                 performerSearchMode: '',
+                currentSearchCategoryId: '',
+                currentSearchCategoryLabel: '',
+                currentSearchCategoryIndex: 0,
+                currentSearchCategoryTotal: 0,
                 selectedWPCat: 0,
                 selectedPostsStatus: '',
                 newWpCategoryName: '',
@@ -490,6 +494,10 @@ function LVJM_pageImportVideos() {
                     var onlyStraight = this.performerSearchMode === 'all_straight';
                     var categories = this.flattenPartnerCategories({ onlyStraight: onlyStraight });
 
+                    this.currentSearchCategoryId = '';
+                    this.currentSearchCategoryLabel = '';
+                    this.currentSearchCategoryIndex = 0;
+
                     if (this.selectedCat && this.selectedCat !== 'all_straight') {
                         var prioritizedCategory = null;
                         lodash.each(categories, function (category) {
@@ -504,6 +512,7 @@ function LVJM_pageImportVideos() {
                     }
 
                     this.performerCategoryQueue = categories;
+                    this.currentSearchCategoryTotal = this.performerCategoryQueue.length;
                     this.performerSearchIndex = 0;
                     this.performerSeenIds = {};
                     this.performerSearchActive = true;
@@ -531,6 +540,10 @@ function LVJM_pageImportVideos() {
                     }
 
                     var category = this.performerCategoryQueue[this.performerSearchIndex];
+                    this.currentSearchCategoryId = category.id || '';
+                    this.currentSearchCategoryLabel = category.name || '';
+                    this.currentSearchCategoryIndex = this.performerSearchIndex;
+                    this.currentSearchCategoryTotal = this.performerCategoryQueue.length;
                     this.performerSearchIndex++;
                     this.searchingVideos = true;
 
@@ -662,6 +675,10 @@ function LVJM_pageImportVideos() {
                     this.searchingVideos = false;
                     this.videosHasBeenSearched = true;
                     this.performerSearchMode = '';
+                    this.currentSearchCategoryId = '';
+                    this.currentSearchCategoryLabel = '';
+                    this.currentSearchCategoryIndex = 0;
+                    this.currentSearchCategoryTotal = 0;
                     jQuery('[data-id="sort_partners"]').prop("disabled", false);
                     jQuery('[data-id="cat_s_select"]').prop("disabled", false);
                     jQuery('[data-id="partner_select"]').prop("disabled", false);
@@ -705,6 +722,10 @@ function LVJM_pageImportVideos() {
                     this.performerSeenIds = {};
                     this.performerFallbackRan = false;
                     this.performerSearchMode = '';
+                    this.currentSearchCategoryId = '';
+                    this.currentSearchCategoryLabel = '';
+                    this.currentSearchCategoryIndex = 0;
+                    this.currentSearchCategoryTotal = 0;
 
                     setTimeout(function () {
                         jQuery('#partner_select').selectpicker('refresh');
@@ -802,6 +823,10 @@ function LVJM_pageImportVideos() {
                     this.performerSearchMethod = method;
                     this.performerSearchFeedId = feedId || '';
                     this.performerFallbackRan = false;
+                    this.currentSearchCategoryId = '';
+                    this.currentSearchCategoryLabel = '';
+                    this.currentSearchCategoryIndex = 0;
+                    this.currentSearchCategoryTotal = 0;
 
                     if (method == 'create') {
                         this.firstImport = true;
