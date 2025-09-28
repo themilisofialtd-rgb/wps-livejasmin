@@ -182,13 +182,27 @@ class LVJM_Search_Videos {
                                         $base_url  = 'https://pt.ptawe.com/api/video-promotion/v1/list';
                                         $client_ip = lvjm_get_client_ip_address();
                                         error_log( '[WPS-LiveJasmin] Using client IP for video search feed: ' . $client_ip );
+                                        $default_limit = 120;
+                                        $max_limit     = 200;
+
+                                        $limit = 0;
+                                        if ( isset( $this->params['limit'] ) ) {
+                                                $limit = absint( $this->params['limit'] );
+                                        }
+
+                                        if ( empty( $limit ) ) {
+                                                $limit = $default_limit;
+                                        } else {
+                                                $limit = min( $limit, $max_limit );
+                                        }
+
                                         $params    = array(
                                                 'site'              => 'wl3',
                                                 'tags'              => isset( $this->params['cat_s'] ) ? $this->params['cat_s'] : '',
                                                 'sexualOrientation' => 'straight',
                                                 'language'          => 'en',
                                                 'clientIp'          => $client_ip,
-                                                'limit'             => 120,
+                                                'limit'             => $limit,
                                                 'psid'              => $psid,
                                                 'accessKey'         => $access_key,
                                                 'primaryColor'      => 'be0000',
