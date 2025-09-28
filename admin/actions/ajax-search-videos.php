@@ -28,6 +28,8 @@ function lvjm_search_videos( $params = '' ) {
     $performer_raw  = isset( $params['performer'] ) ? sanitize_text_field( (string) $params['performer'] ) : '';
     $performer      = lvjm_normalize_performer_query( $performer_raw );
     $params['performer'] = $performer;
+    $performer_label = isset( $params['performer_label'] ) ? sanitize_text_field( (string) $params['performer_label'] ) : $performer_raw;
+    $category_label  = isset( $params['category_label'] ) ? sanitize_text_field( (string) $params['category_label'] ) : '';
     $is_multi  = isset( $params['multi_category_search'] ) && '1' === (string) $params['multi_category_search'];
 
     if ( $is_multi ) {
@@ -84,8 +86,19 @@ function lvjm_search_videos( $params = '' ) {
                 }
             }
 
-            if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( sprintf( '[WPS-LiveJasmin] Brutal search → %s (%d videos)', $category_id, count( (array) $new_videos ) ) );
+            if ( defined( 'WP_DEBUG' ) && WP_DEBUG && '' !== $performer ) {
+                $log_performer_name = '' !== $performer_label ? $performer_label : $performer_raw;
+                if ( '' === $log_performer_name ) {
+                    $log_performer_name = $performer;
+                }
+
+                $log_category_name = $category_id;
+                if ( '' === $log_category_name ) {
+                    $log_category_name = $normalized_slug;
+                }
+                $log_category_name = ucwords( str_replace( array( '-', '_' ), ' ', (string) $log_category_name ) );
+
+                error_log( sprintf( '[WPS-LiveJasmin] Performer %s — Category %s → %d results', $log_performer_name, $log_category_name, count( (array) $new_videos ) ) );
             }
         }
     } else {
@@ -99,6 +112,29 @@ function lvjm_search_videos( $params = '' ) {
         } else {
             $videos = (array) $search_videos->get_videos();
             $searched_data = $search_videos->get_searched_data();
+        }
+
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG && '' !== $performer ) {
+            $log_performer_name = '' !== $performer_label ? $performer_label : $performer_raw;
+            if ( '' === $log_performer_name ) {
+                $log_performer_name = $performer;
+            }
+
+            $log_category_name = $category_label;
+            if ( '' === $log_category_name ) {
+                if ( isset( $params['cat_s'] ) && '' !== (string) $params['cat_s'] ) {
+                    $log_category_name = (string) $params['cat_s'];
+                } else {
+                    $log_category_name = 'All Categories';
+                }
+            }
+
+            $log_category_name = trim( $log_category_name );
+            if ( '' === $log_category_name ) {
+                $log_category_name = 'All Categories';
+            }
+
+            error_log( sprintf( '[WPS-LiveJasmin] Performer %s — Category %s → %d results', $log_performer_name, $log_category_name, count( (array) $videos ) ) );
         }
     }
 
