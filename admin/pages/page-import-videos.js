@@ -26,8 +26,14 @@ function lvjmNormalizePerformerQuery(input) {
             return '';
         }
 
-        var lower = word.toLowerCase();
-        return lower.charAt(0).toUpperCase() + lower.slice(1);
+        var characters = Array.from(word);
+        var firstChar = characters.shift();
+
+        if (typeof firstChar === 'undefined') {
+            return '';
+        }
+
+        return firstChar.toLocaleUpperCase() + characters.join('');
     }).join('');
 }
 
