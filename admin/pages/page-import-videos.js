@@ -582,22 +582,7 @@ function LVJM_pageImportVideos() {
 
                             var hasNext = self.performerSearchIndex < self.performerCategoryQueue.length;
                             if (hasNext) {
-                                if (added > 0) {
-                                    var baseMessage = 'Do you want to search the next category? (Yes/No)';
-                                    var message = 'Found ' + added + ' videos in ' + category.name + '.';
-                                    if (self.selectedPerformer && self.selectedPerformer.trim() !== '') {
-                                        message = 'Found ' + added + ' videos in ' + category.name + ' for performer ' + self.selectedPerformer + '.';
-                                    }
-                                    message += ' ' + baseMessage;
-
-                                    if (window.confirm(message)) {
-                                        self.performerSearchNextCategory();
-                                    } else {
-                                        self.finishCategoryLoop();
-                                    }
-                                } else {
-                                    self.performerSearchNextCategory();
-                                }
+                                self.performerSearchNextCategory();
                             } else {
                                 self.finishCategoryLoop();
                             }
