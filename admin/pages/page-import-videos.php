@@ -151,8 +151,8 @@ function lvjm_import_videos_page() {
 															</span>
 											<span id="performer-search" style="margin-left:8px;">
 												<label for="performer_s" class="sr-only"><?php esc_html_e( 'Performer', 'lvjm_lang' ); ?></label>
-												<input type="text" v-model="selectedPerformer" placeholder="<?php esc_attr_e( 'Performer (optional)', 'lvjm_lang' ); ?>" id="performer_s" name="performer_s" class="form-control" style="width:220px;">
-											</span>
+                                                                                                <input type="text" v-model="selectedPerformer" placeholder="<?php esc_attr_e( 'Performer (e.g., First Last)', 'lvjm_lang' ); ?>" id="performer_s" name="performer_s" class="form-control" style="width:220px;">
+                                                                                        </span>
 
 														</div>
 													</div>

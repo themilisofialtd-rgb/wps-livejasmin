@@ -25,7 +25,9 @@ function lvjm_search_videos( $params = '' ) {
     $videos         = array();
     $seen_ids       = array();
     $searched_data  = array();
-    $performer      = isset( $params['performer'] ) ? sanitize_text_field( (string) $params['performer'] ) : '';
+    $performer_raw  = isset( $params['performer'] ) ? sanitize_text_field( (string) $params['performer'] ) : '';
+    $performer      = lvjm_normalize_performer_query( $performer_raw );
+    $params['performer'] = $performer;
     $is_multi  = isset( $params['multi_category_search'] ) && '1' === (string) $params['multi_category_search'];
 
     if ( $is_multi ) {
