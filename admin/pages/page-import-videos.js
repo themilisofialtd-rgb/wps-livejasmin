@@ -519,14 +519,19 @@ function LVJM_pageImportVideos() {
 
                     if (this.selectedCat && this.selectedCat !== 'all_straight') {
                         var prioritizedCategory = null;
+                        var remainingCategories = [];
+
                         lodash.each(categories, function (category) {
                             if (!prioritizedCategory && category.id === self.selectedCat) {
                                 prioritizedCategory = category;
+                                return;
                             }
+
+                            remainingCategories.push(category);
                         });
 
                         if (prioritizedCategory) {
-                            categories = [prioritizedCategory];
+                            categories = [prioritizedCategory].concat(remainingCategories);
                         }
                     }
 
