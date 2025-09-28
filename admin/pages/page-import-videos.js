@@ -3,6 +3,34 @@ _.contains = _.includes;
 window.lodash = _.noConflict();
 window.addEventListener('load', LVJM_pageImportVideos, false);
 
+function lvjmNormalizePerformerQuery(input) {
+    if (typeof input !== 'string') {
+        return '';
+    }
+
+    var sanitized = input;
+    try {
+        sanitized = sanitized.replace(/[^\p{L}\p{N}\s]+/gu, ' ');
+    } catch (error) {
+        sanitized = sanitized.replace(/[^A-Za-z0-9\s]+/g, ' ');
+    }
+
+    sanitized = sanitized.replace(/_/g, ' ').trim();
+
+    if (sanitized === '') {
+        return '';
+    }
+
+    return sanitized.split(/\s+/).map(function (word) {
+        if (!word) {
+            return '';
+        }
+
+        var lower = word.toLowerCase();
+        return lower.charAt(0).toUpperCase() + lower.slice(1);
+    }).join('');
+}
+
 function LVJM_pageImportVideos() {
 
     if (document.getElementById('import-videos')) {
@@ -495,6 +523,8 @@ function LVJM_pageImportVideos() {
                     this.searchingVideos = true;
 
                     var requestCat = category.id;
+                    var normalizedPerformer = lvjmNormalizePerformerQuery(this.selectedPerformer);
+
                     var payload = {
                         action: 'lvjm_search_videos',
                         cat_s: requestCat,
@@ -507,7 +537,7 @@ function LVJM_pageImportVideos() {
                         nonce: LVJM_import_videos.ajax.nonce,
                         original_cat_s: requestCat ? requestCat.replace('&', '%%') : '',
                         partner: this.performerSearchPartner,
-                        performer: this.selectedPerformer
+                        performer: normalizedPerformer
                     };
 
                     this.$http.post(
@@ -578,6 +608,8 @@ function LVJM_pageImportVideos() {
                     this.performerFallbackRan = true;
                     this.searchingVideos = true;
 
+                    var normalizedPerformer = lvjmNormalizePerformerQuery(this.selectedPerformer);
+
                     this.$http.post(
                         LVJM_import_videos.ajax.url,
                         {
@@ -592,7 +624,7 @@ function LVJM_pageImportVideos() {
                             nonce: LVJM_import_videos.ajax.nonce,
                             original_cat_s: '',
                             partner: this.performerSearchPartner,
-                            performer: this.selectedPerformer
+                            performer: normalizedPerformer
                         },
                         { emulateJSON: true }
                     ).then(function (response) {
@@ -770,7 +802,9 @@ function LVJM_pageImportVideos() {
                         return;
                     }
 
-                    if (this.selectedPerformer && this.selectedPerformer.trim() !== '') {
+                    var normalizedPerformer = lvjmNormalizePerformerQuery(this.selectedPerformer);
+
+                    if (normalizedPerformer !== '') {
                         this.startPerformerSearch({ mode: 'performer' });
                         return;
                     }
@@ -789,7 +823,7 @@ function LVJM_pageImportVideos() {
                                 nonce: LVJM_import_videos.ajax.nonce,
                                 original_cat_s: cat_s.replace('&', '%%'),
                                 partner: partner,
-                                performer: this.selectedPerformer
+                                performer: normalizedPerformer
                             }, {
                                 emulateJSON: true
                             })

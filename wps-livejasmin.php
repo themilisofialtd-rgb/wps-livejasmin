@@ -777,6 +777,42 @@ if ( ! function_exists( 'lvjm_get_client_ip_address' ) ) {
         }
 }
 
+if ( ! function_exists( 'lvjm_normalize_performer_query' ) ) {
+        /**
+         * Convert a performer name into the camel-cased LiveJasmin identifier.
+         *
+         * @param string $performer Performer name entered by an editor or CLI task.
+         * @return string Normalized performer identifier.
+         */
+        function lvjm_normalize_performer_query( $performer ) {
+                $performer = (string) $performer;
+                $performer = preg_replace( '/[^\p{L}\p{N}\s]+/u', ' ', $performer );
+                $performer = trim( $performer );
+
+                if ( '' === $performer ) {
+                        return '';
+                }
+
+                $words       = preg_split( '/\s+/u', $performer );
+                $normalized  = array();
+
+                foreach ( (array) $words as $word ) {
+                        $word = trim( $word );
+                        if ( '' === $word ) {
+                                continue;
+                        }
+
+                        if ( function_exists( 'mb_convert_case' ) ) {
+                                $normalized[] = mb_convert_case( $word, MB_CASE_TITLE, 'UTF-8' );
+                        } else {
+                                $normalized[] = ucfirst( strtolower( $word ) );
+                        }
+                }
+
+                return implode( '', $normalized );
+        }
+}
+
 if ( ! function_exists( 'lvjm_normalize_category_slug' ) ) {
         /**
          * Normalize a partner category identifier to a slug compatible with the API/cache.
