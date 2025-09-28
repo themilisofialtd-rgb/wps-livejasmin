@@ -280,23 +280,41 @@ class LVJM_Search_Videos {
 		$parsed_url = wp_parse_url( $this->feed_url );
 		parse_str( $parsed_url['query'], $old_query );
 		$new_query = array();
-		foreach ( $old_query as $key => $value ) {
-			if ( 'tags' !== $key ) {
-				$new_query[ $key ] = $value;
-				continue;
-			}
-			$new_query['tags']              = $value;
-			$new_query['sexualOrientation'] = 'straight';
-			if ( strpos( $value, 'gay' ) !== false ) {
-				$new_query[ $key ]              = trim( str_replace( 'gay', '', $value ) );
-				$new_query['sexualOrientation'] = 'gay';
-			}
-			if ( strpos( $value, 'shemale' ) !== false ) {
-				$new_query[ $key ]              = trim( str_replace( 'shemale', '', $value ) );
-				$new_query['sexualOrientation'] = 'shemale';
-			}
-		}
-		$parsed_url['query'] = http_build_query( $new_query );
+                foreach ( $old_query as $key => $value ) {
+                        if ( 'tags' !== $key ) {
+                                $new_query[ $key ] = $value;
+                                continue;
+                        }
+
+                        $decoded_tags = rawurldecode( $value );
+
+                        $orientation_terms = array(
+                                'gay'     => 'gay',
+                                'shemale' => 'shemale',
+                        );
+
+                        $orientation = 'straight';
+                        $pattern     = '/\s+(' . implode( '|', array_map( 'preg_quote', array_keys( $orientation_terms ) ) ) . ')$/i';
+
+                        if ( preg_match( $pattern, $decoded_tags, $matches ) ) {
+                                $matched_term = strtolower( $matches[1] );
+                                if ( isset( $orientation_terms[ $matched_term ] ) ) {
+                                        $orientation = $orientation_terms[ $matched_term ];
+                                }
+                                $decoded_tags = preg_replace( $pattern, '', $decoded_tags );
+                        } else {
+                                foreach ( $orientation_terms as $term => $orientation_value ) {
+                                        if ( false !== stripos( $decoded_tags, $term ) ) {
+                                                $orientation = $orientation_value;
+                                                break;
+                                        }
+                                }
+                        }
+
+                        $new_query['tags']              = trim( $decoded_tags );
+                        $new_query['sexualOrientation'] = $orientation;
+                }
+                $parsed_url['query'] = http_build_query( $new_query, '', '&', PHP_QUERY_RFC3986 );
 		$feed_url            = $this->unparse_url( $parsed_url );
 		return $feed_url;
 	}
