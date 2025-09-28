@@ -41,25 +41,30 @@ function lvjm_load_partner_cats() {
 	$output = array();
 	$i      = 0;
 
-	foreach ( (array) $partner_categories as $partner_category ) {
-		$output[ $i ] = $partner_category;
-		if ( 'optgroup' === $partner_category['id'] ) {
-			foreach ( $partner_category['sub_cats'] as $index => $partner_sub_cat ) {
-				$output[ $i ]['sub_cats'][ $index ]['disabled'] = in_array( $partner_sub_cat['id'], $cats_used, true );
-			}
-		} else {
-			$output[ $i ]['disabled'] = in_array( $partner_category['id'], $cats_used, true );
-		}
-		++$i;
-	}
-	// Inject custom category
-if (is_array($output) && isset($output[0]['id'])) {
-    array_unshift($output, array(
-        'id' => 'all_straight',
-        'name' => 'All Straight Categories'
-    ));
-}
-wp_send_json( $output );
+        foreach ( (array) $partner_categories as $partner_category ) {
+                $output[ $i ] = $partner_category;
+                if ( 'optgroup' === $partner_category['id'] ) {
+                        foreach ( $partner_category['sub_cats'] as $index => $partner_sub_cat ) {
+                                $output[ $i ]['sub_cats'][ $index ]['disabled'] = in_array( $partner_sub_cat['id'], $cats_used, true );
+                        }
+                } else {
+                        $output[ $i ]['disabled'] = in_array( $partner_category['id'], $cats_used, true );
+                }
+                ++$i;
+        }
+
+        // Inject custom category.
+        if ( is_array( $output ) && isset( $output[0]['id'] ) ) {
+                array_unshift(
+                        $output,
+                        array(
+                                'id'          => 'all_straight',
+                                'name'        => 'All Straight Categories',
+                                'orientation' => 'straight',
+                        )
+                );
+        }
+        wp_send_json( $output );
 	wp_die();
 }
 add_action( 'wp_ajax_lvjm_load_partner_cats', 'lvjm_load_partner_cats' );
