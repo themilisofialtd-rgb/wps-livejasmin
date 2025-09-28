@@ -802,10 +802,23 @@ if ( ! function_exists( 'lvjm_normalize_performer_query' ) ) {
                                 continue;
                         }
 
-                        if ( function_exists( 'mb_convert_case' ) ) {
-                                $normalized[] = mb_convert_case( $word, MB_CASE_TITLE, 'UTF-8' );
+                        if ( function_exists( 'mb_substr' ) && function_exists( 'mb_strtoupper' ) ) {
+                                $first_char = mb_substr( $word, 0, 1, 'UTF-8' );
+                                $rest       = mb_substr( $word, 1, null, 'UTF-8' );
+
+                                if ( false === $first_char ) {
+                                        $first_char = '';
+                                }
+
+                                if ( false === $rest ) {
+                                        $rest = '';
+                                }
+
+                                $normalized[] = mb_strtoupper( $first_char, 'UTF-8' ) . $rest;
                         } else {
-                                $normalized[] = ucfirst( strtolower( $word ) );
+                                $first_char   = substr( $word, 0, 1 );
+                                $rest         = substr( $word, 1 );
+                                $normalized[] = strtoupper( $first_char ) . $rest;
                         }
                 }
 
