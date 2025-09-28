@@ -147,6 +147,7 @@ function LVJM_pageImportVideos() {
                 currentSearchCategoryLabel: '',
                 currentSearchCategoryIndex: 0,
                 currentSearchCategoryTotal: 0,
+                performerCategoryProgress: [],
                 selectedWPCat: 0,
                 selectedPostsStatus: '',
                 newWpCategoryName: '',
@@ -516,6 +517,7 @@ function LVJM_pageImportVideos() {
                     this.performerSearchIndex = 0;
                     this.performerSeenIds = {};
                     this.performerSearchActive = true;
+                    this.performerCategoryProgress = [];
 
                     if (!this.performerCategoryQueue.length) {
                         if (this.performerSearchMode === 'performer') {
@@ -572,32 +574,28 @@ function LVJM_pageImportVideos() {
                     ).then(function (response) {
                         if (lodash.isEmpty(response.body.errors)) {
                             self.searchedData = response.body.searched_data;
-                            var added = self.appendVideosFromResponse(response.body.videos, requestCat, {
+                            var responseVideos = lodash.isArray(response.body.videos) ? response.body.videos : [];
+                            var added = self.appendVideosFromResponse(responseVideos, requestCat, {
                                 categoryName: category.name,
                                 origin: 'category',
                                 trackSeen: true
                             });
+                            var totalVideos = responseVideos.length;
+                            self.recordPerformerCategoryProgress({
+                                id: category.id,
+                                name: category.name,
+                                added: added,
+                                total: totalVideos
+                            });
                             self.videosHasBeenSearched = true;
                             self.searchingVideos = false;
 
-                            var hasNext = self.performerSearchIndex < self.performerCategoryQueue.length;
-                            if (hasNext) {
-                                if (added > 0) {
-                                    var baseMessage = 'Do you want to search the next category? (Yes/No)';
-                                    var message = 'Found ' + added + ' videos in ' + category.name + '.';
-                                    if (self.selectedPerformer && self.selectedPerformer.trim() !== '') {
-                                        message = 'Found ' + added + ' videos in ' + category.name + ' for performer ' + self.selectedPerformer + '.';
-                                    }
-                                    message += ' ' + baseMessage;
+                            if (!self.performerSearchActive) {
+                                return;
+                            }
 
-                                    if (window.confirm(message)) {
-                                        self.performerSearchNextCategory();
-                                    } else {
-                                        self.finishCategoryLoop();
-                                    }
-                                } else {
-                                    self.performerSearchNextCategory();
-                                }
+                            if (self.performerSearchIndex < self.performerCategoryQueue.length) {
+                                self.performerSearchNextCategory();
                             } else {
                                 self.finishCategoryLoop();
                             }
@@ -618,6 +616,41 @@ function LVJM_pageImportVideos() {
                     } else {
                         this.finishPerformerSearch();
                     }
+                },
+                recordPerformerCategoryProgress: function (result) {
+                    if (!result) {
+                        return;
+                    }
+
+                    var id = result.id || '';
+                    var name = result.name || '';
+                    var added = lodash.isNumber(result.added) ? result.added : 0;
+                    var total = lodash.isNumber(result.total) ? result.total : 0;
+                    var existingIndex = lodash.findIndex(this.performerCategoryProgress, function (entry) {
+                        return entry.id === id && entry.name === name;
+                    });
+
+                    var payload = {
+                        id: id,
+                        name: name,
+                        added: added,
+                        total: total,
+                        duplicates: Math.max(total - added, 0)
+                    };
+
+                    if (existingIndex >= 0) {
+                        this.$set(this.performerCategoryProgress, existingIndex, payload);
+                    } else {
+                        this.performerCategoryProgress.push(payload);
+                    }
+                },
+                cancelPerformerSearch: function () {
+                    if (!this.performerSearchActive) {
+                        return;
+                    }
+
+                    this.performerSearchActive = false;
+                    this.finishPerformerSearch();
                 },
                 runPerformerFallback: function () {
                     var self = this;
@@ -726,6 +759,7 @@ function LVJM_pageImportVideos() {
                     this.currentSearchCategoryLabel = '';
                     this.currentSearchCategoryIndex = 0;
                     this.currentSearchCategoryTotal = 0;
+                    this.performerCategoryProgress = [];
 
                     setTimeout(function () {
                         jQuery('#partner_select').selectpicker('refresh');

@@ -171,11 +171,28 @@ function lvjm_import_videos_page() {
                                                                                                                         ({{ currentSearchCategoryIndex + 1 }} / {{ currentSearchCategoryTotal }})
                                                                                                                 </span>
                                                                                                         </p>
+                                                                                                        <ul v-if="performerCategoryProgress.length" class="list-unstyled performer-category-progress margin-top-10">
+                                                                                                                <li v-for="categoryProgress in performerCategoryProgress" v-bind:key="categoryProgress.id || categoryProgress.name">
+                                                                                                                        <strong>{{ categoryProgress.name || categoryProgress.id }}</strong> -
+                                                                                                                        <template v-if="categoryProgress.total > 0">
+                                                                                                                                {{ categoryProgress.added }} <?php esc_html_e( 'new', 'lvjm_lang' ); ?> / {{ categoryProgress.total }} <?php esc_html_e( 'total', 'lvjm_lang' ); ?>
+                                                                                                                                <template v-if="categoryProgress.duplicates > 0">
+                                                                                                                                        ({{ categoryProgress.duplicates }} <?php esc_html_e( 'already imported', 'lvjm_lang' ); ?>)
+                                                                                                                                </template>
+                                                                                                                        </template>
+                                                                                                                        <template v-else>
+                                                                                                                                <?php esc_html_e( 'No videos found', 'lvjm_lang' ); ?>
+                                                                                                                        </template>
+                                                                                                                </li>
+                                                                                                        </ul>
+                                                                                                        <button v-if="performerSearchActive" class="btn btn-link btn-sm" v-on:click.prevent="cancelPerformerSearch">
+                                                                                                                <i class="fa fa-stop-circle" aria-hidden="true"></i> <?php esc_html_e( 'Stop category search', 'lvjm_lang' ); ?>
+                                                                                                        </button>
                                                                                                         <?php /* translators: %s: number of videos in the search results */ ?>
                                                                                                        <small><i class="fa fa-info-circle" aria-hidden="true"></i> <?php printf( esc_html__( 'Each search displays up to %s videos at a time, including previously imported ones (marked as ✅ Already Imported).', 'lvjm_lang' ), '{{data.videosLimit}}' ); ?></small>
-												</div>
-											</div>
-										</div>
+                                                                                                </div>
+                                                                                        </div>
+                                                                                </div>
 									</div>
 									<!-- / search videos block -->
 									<!-- results success block -->
