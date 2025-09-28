@@ -459,6 +459,17 @@ function LVJM_pageImportVideos() {
                         var orientation = item.orientation || '';
                         return orientation.toString().toLowerCase();
                     };
+                    var matchesOrientation = function (orientation) {
+                        if (!onlyStraight) {
+                            return true;
+                        }
+
+                        if (!orientation) {
+                            return true;
+                        }
+
+                        return orientation === targetOrientation;
+                    };
 
                     lodash.each(this.partnerCats, function (cat) {
                         if (!cat || !cat.id) {
@@ -468,7 +479,7 @@ function LVJM_pageImportVideos() {
                         var catOrientation = getOrientation(cat);
 
                         if (cat.id === 'optgroup' && cat.sub_cats) {
-                            if (onlyStraight && catOrientation !== targetOrientation) {
+                            if (!matchesOrientation(catOrientation)) {
                                 return;
                             }
 
@@ -478,12 +489,12 @@ function LVJM_pageImportVideos() {
                                 }
 
                                 var subOrientation = getOrientation(sub) || catOrientation;
-                                if (!onlyStraight || subOrientation === targetOrientation) {
+                                if (matchesOrientation(subOrientation)) {
                                     categories.push({ id: sub.id, name: sub.name });
                                 }
                             });
                         } else if (cat.id !== 'all_straight') {
-                            if (!onlyStraight || catOrientation === targetOrientation) {
+                            if (matchesOrientation(catOrientation)) {
                                 categories.push({ id: cat.id, name: cat.name });
                             }
                         }
