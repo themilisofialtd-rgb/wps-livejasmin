@@ -164,6 +164,7 @@ function lvjm_import_videos_page() {
 													</span>
 													<button v-show="!searchingVideos && !videosHasBeenSearched" v-on:click.prevent="searchVideos('create')" class="btn btn-info" v-bind:class="searchBtnClass" rel="tooltip" data-placement="top" v-bind:data-original-title="searchButtonTooltip"><i class="fa fa-search" aria-hidden="true"></i> <?php esc_html_e( 'Search videos', 'lvjm_lang' ); ?></button>
                                                                                                         <button v-show="searchingVideos" disabled="disabled" class="btn btn-info"><i class="fa fa-spinner fa-pulse" aria-hidden="true"></i> <?php esc_html_e( 'Searching videos...', 'lvjm_lang' ); ?></button>
+                                                                                                        <button v-show="performerSearchActive" v-on:click.prevent="cancelPerformerSearch" class="btn btn-warning" style="margin-left:5px;"><i class="fa fa-stop-circle" aria-hidden="true"></i> <?php esc_html_e( 'Stop category search', 'lvjm_lang' ); ?></button>
                                                                                                         <p class="text-info" v-if="performerSearchActive && currentSearchCategoryLabel">
                                                                                                                 <strong><?php esc_html_e( 'Currently searching category', 'lvjm_lang' ); ?></strong>:
                                                                                                                 {{ currentSearchCategoryLabel }}
@@ -171,9 +172,22 @@ function lvjm_import_videos_page() {
                                                                                                                         ({{ currentSearchCategoryIndex + 1 }} / {{ currentSearchCategoryTotal }})
                                                                                                                 </span>
                                                                                                         </p>
+                                                                                                        <p class="text-muted" v-if="performerSearchLastCategory">
+                                                                                                                <strong><?php esc_html_e( 'Latest category result', 'lvjm_lang' ); ?></strong>:
+                                                                                                                {{ performerSearchLastCategory }}
+                                                                                                                <span v-if="performerSearchLastAdded > 0">
+                                                                                                                        &ndash; <?php esc_html_e( 'Found', 'lvjm_lang' ); ?> {{ performerSearchLastAdded }} <?php esc_html_e( 'new videos', 'lvjm_lang' ); ?>
+                                                                                                                </span>
+                                                                                                                <span v-else>
+                                                                                                                        &ndash; <?php esc_html_e( 'No new videos found', 'lvjm_lang' ); ?>
+                                                                                                                </span>
+                                                                                                                <template v-if="performerSearchTotalFound > 0">
+                                                                                                                        (<?php esc_html_e( 'Total new videos so far', 'lvjm_lang' ); ?>: {{ performerSearchTotalFound }})
+                                                                                                                </template>
+                                                                                                        </p>
                                                                                                         <?php /* translators: %s: number of videos in the search results */ ?>
                                                                                                        <small><i class="fa fa-info-circle" aria-hidden="true"></i> <?php printf( esc_html__( 'Each search displays up to %s videos at a time, including previously imported ones (marked as ✅ Already Imported).', 'lvjm_lang' ), '{{data.videosLimit}}' ); ?></small>
-												</div>
+                                                                                                </div>
 											</div>
 										</div>
 									</div>
