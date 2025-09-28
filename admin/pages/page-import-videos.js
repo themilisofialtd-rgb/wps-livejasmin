@@ -135,6 +135,7 @@ function LVJM_pageImportVideos() {
                 selectedKW: '',
                 selectedPerformer: '',
                 performerSearchActive: false,
+                performerSearchCancelled: false,
                 performerCategoryQueue: [],
                 performerSearchIndex: 0,
                 performerSeenIds: {},
@@ -143,6 +144,9 @@ function LVJM_pageImportVideos() {
                 performerSearchFeedId: '',
                 performerFallbackRan: false,
                 performerSearchMode: '',
+                performerSearchTotalFound: 0,
+                performerSearchLastAdded: 0,
+                performerSearchLastCategory: '',
                 currentSearchCategoryId: '',
                 currentSearchCategoryLabel: '',
                 currentSearchCategoryIndex: 0,
@@ -494,6 +498,10 @@ function LVJM_pageImportVideos() {
                     var onlyStraight = this.performerSearchMode === 'all_straight';
                     var categories = this.flattenPartnerCategories({ onlyStraight: onlyStraight });
 
+                    this.performerSearchTotalFound = 0;
+                    this.performerSearchLastAdded = 0;
+                    this.performerSearchLastCategory = '';
+
                     this.currentSearchCategoryId = '';
                     this.currentSearchCategoryLabel = '';
                     this.currentSearchCategoryIndex = 0;
@@ -516,6 +524,7 @@ function LVJM_pageImportVideos() {
                     this.performerSearchIndex = 0;
                     this.performerSeenIds = {};
                     this.performerSearchActive = true;
+                    this.performerSearchCancelled = false;
 
                     if (!this.performerCategoryQueue.length) {
                         if (this.performerSearchMode === 'performer') {
@@ -530,7 +539,8 @@ function LVJM_pageImportVideos() {
                 },
                 performerSearchNextCategory: function () {
                     var self = this;
-                    if (!this.performerSearchActive) {
+                    if (!this.performerSearchActive || this.performerSearchCancelled) {
+                        this.finishCategoryLoop();
                         return;
                     }
 
@@ -578,7 +588,17 @@ function LVJM_pageImportVideos() {
                                 trackSeen: true
                             });
                             self.videosHasBeenSearched = true;
-                            self.searchingVideos = false;
+
+                            self.performerSearchLastCategory = category.name || '';
+                            self.performerSearchLastAdded = added;
+                            if (added > 0) {
+                                self.performerSearchTotalFound += added;
+                            }
+
+                            if (!self.performerSearchActive || self.performerSearchCancelled) {
+                                self.finishCategoryLoop();
+                                return;
+                            }
 
                             var hasNext = self.performerSearchIndex < self.performerCategoryQueue.length;
                             if (hasNext) {
@@ -598,6 +618,11 @@ function LVJM_pageImportVideos() {
                     });
                 },
                 finishCategoryLoop: function () {
+                    this.searchingVideos = false;
+                    if (this.performerSearchCancelled) {
+                        this.finishPerformerSearch();
+                        return;
+                    }
                     if (this.performerSearchMode === 'performer') {
                         this.runPerformerFallback();
                     } else {
@@ -640,12 +665,17 @@ function LVJM_pageImportVideos() {
                     ).then(function (response) {
                         if (lodash.isEmpty(response.body.errors)) {
                             self.searchedData = response.body.searched_data;
-                            self.appendVideosFromResponse(response.body.videos, '', {
+                            var added = self.appendVideosFromResponse(response.body.videos, '', {
                                 categoryName: 'All Categories',
                                 origin: 'fallback',
                                 trackSeen: true,
                                 onlyNew: true
                             });
+                            self.performerSearchLastCategory = 'All Categories';
+                            self.performerSearchLastAdded = added;
+                            if (added > 0) {
+                                self.performerSearchTotalFound += added;
+                            }
                         } else {
                             self.videosSearchedErrors = response.body.errors;
                         }
@@ -664,10 +694,19 @@ function LVJM_pageImportVideos() {
                     this.currentSearchCategoryLabel = '';
                     this.currentSearchCategoryIndex = 0;
                     this.currentSearchCategoryTotal = 0;
+                    this.performerSearchCancelled = false;
                     jQuery('[data-id="sort_partners"]').prop("disabled", false);
                     jQuery('[data-id="cat_s_select"]').prop("disabled", false);
                     jQuery('[data-id="partner_select"]').prop("disabled", false);
                     stickNav();
+                },
+                cancelPerformerSearch: function () {
+                    if (!this.performerSearchActive) {
+                        return;
+                    }
+
+                    this.performerSearchCancelled = true;
+                    this.performerSearchActive = false;
                 },
                 loadPartnerCats: function () {
                     this.partnerCatsLoading = true;
@@ -702,11 +741,15 @@ function LVJM_pageImportVideos() {
                     this.isTestSearch = false;
                     this.videosHasBeenSearched = false;
                     this.performerSearchActive = false;
+                    this.performerSearchCancelled = false;
                     this.performerCategoryQueue = [];
                     this.performerSearchIndex = 0;
                     this.performerSeenIds = {};
                     this.performerFallbackRan = false;
                     this.performerSearchMode = '';
+                    this.performerSearchTotalFound = 0;
+                    this.performerSearchLastAdded = 0;
+                    this.performerSearchLastCategory = '';
                     this.currentSearchCategoryId = '';
                     this.currentSearchCategoryLabel = '';
                     this.currentSearchCategoryIndex = 0;
@@ -800,6 +843,7 @@ function LVJM_pageImportVideos() {
                     //jQuery('[rel=tooltip]').tooltip('hide');
 
                     this.performerSearchActive = false;
+                    this.performerSearchCancelled = false;
                     this.performerCategoryQueue = [];
                     this.performerSearchIndex = 0;
                     this.performerSeenIds = {};
@@ -812,6 +856,9 @@ function LVJM_pageImportVideos() {
                     this.currentSearchCategoryLabel = '';
                     this.currentSearchCategoryIndex = 0;
                     this.currentSearchCategoryTotal = 0;
+                    this.performerSearchTotalFound = 0;
+                    this.performerSearchLastAdded = 0;
+                    this.performerSearchLastCategory = '';
 
                     if (method == 'create') {
                         this.firstImport = true;
