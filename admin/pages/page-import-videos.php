@@ -149,9 +149,13 @@ function lvjm_import_videos_page() {
 															<span id="kw-search" v-show="selectedPartnerObject.filters.search_by == 'keyword'">
 															<strong>- <?php esc_html_e( 'OR', 'lvjm_lang' ); ?> -</strong> <?php esc_html_e( 'Enter some keywords', 'lvjm_lang' ); ?> <input v-model="selectedKW" v-bind:disabled="searchingVideos" v-on:keyup.enter.prevent="searchVideos('create')" id="kw_s" type="text" placeholder="<?php esc_html_e( 'eg. ebony lesbian', 'lvjm_lang' ); ?>" name="kw_s" class="form-control" style="width:250px;">
 															</span>
-											<span id="performer-search" style="margin-left:8px;">
-												<label for="performer_s" class="sr-only"><?php esc_html_e( 'Performer', 'lvjm_lang' ); ?></label>
+                                                                                        <span id="performer-search" style="margin-left:8px;">
+                                                                                                <label for="performer_s" class="sr-only"><?php esc_html_e( 'Performer', 'lvjm_lang' ); ?></label>
                                                                                                 <input type="text" v-model="selectedPerformer" placeholder="<?php esc_attr_e( 'Performer (e.g., First Last)', 'lvjm_lang' ); ?>" id="performer_s" name="performer_s" class="form-control" style="width:220px;">
+                                                                                                <label class="checkbox-inline" style="margin-left:10px;">
+                                                                                                        <input type="checkbox" v-model="performerAutoRunAll" v-bind:disabled="performerSearchActive">
+                                                                                                        <?php esc_html_e( 'Auto-run all categories', 'lvjm_lang' ); ?>
+                                                                                                </label>
                                                                                         </span>
 
 														</div>
@@ -164,7 +168,7 @@ function lvjm_import_videos_page() {
 													</span>
 													<button v-show="!searchingVideos && !videosHasBeenSearched" v-on:click.prevent="searchVideos('create')" class="btn btn-info" v-bind:class="searchBtnClass" rel="tooltip" data-placement="top" v-bind:data-original-title="searchButtonTooltip"><i class="fa fa-search" aria-hidden="true"></i> <?php esc_html_e( 'Search videos', 'lvjm_lang' ); ?></button>
                                                                                                         <button v-show="searchingVideos" disabled="disabled" class="btn btn-info"><i class="fa fa-spinner fa-pulse" aria-hidden="true"></i> <?php esc_html_e( 'Searching videos...', 'lvjm_lang' ); ?></button>
-                                                                                                        <button v-show="performerSearchActive" v-on:click.prevent="cancelPerformerSearch" class="btn btn-warning" style="margin-left:5px;"><i class="fa fa-stop-circle" aria-hidden="true"></i> <?php esc_html_e( 'Stop category search', 'lvjm_lang' ); ?></button>
+                                                                                                       <button v-show="performerSearchActive && !performerAwaitingUserContinue" v-on:click.prevent="cancelPerformerSearch" class="btn btn-warning" style="margin-left:5px;"><i class="fa fa-stop-circle" aria-hidden="true"></i> <?php esc_html_e( 'Stop category search', 'lvjm_lang' ); ?></button>
                                                                                                         <p class="text-info" v-if="performerSearchActive && currentSearchCategoryLabel">
                                                                                                                 <strong><?php esc_html_e( 'Currently searching category', 'lvjm_lang' ); ?></strong>:
                                                                                                                 {{ currentSearchCategoryLabel }}
@@ -185,6 +189,36 @@ function lvjm_import_videos_page() {
                                                                                                                         (<?php esc_html_e( 'Total new videos so far', 'lvjm_lang' ); ?>: {{ performerSearchTotalFound }})
                                                                                                                 </template>
                                                                                                         </p>
+                                                                                                        <div v-if="performerCategorySummaries.length" class="margin-top-10">
+                                                                                                                <ul class="list-unstyled performer-category-log">
+                                                                                                                        <li v-for="summary in performerCategorySummaries" v-bind:key="summary.id ? summary.id : summary.name">
+                                                                                                                                <strong><?php esc_html_e( 'Category', 'lvjm_lang' ); ?></strong> {{ summary.name }} &rarr; {{ summary.results }} <?php esc_html_e( 'results', 'lvjm_lang' ); ?>
+                                                                                                                        </li>
+                                                                                                                </ul>
+                                                                                                        </div>
+                                                                                                        <div v-if="performerSearchActive && performerAwaitingUserContinue" class="margin-top-10">
+                                                                                                                <button class="btn btn-success" v-on:click.prevent="continuePerformerCategorySearch"><span aria-hidden="true">✅</span> <?php esc_html_e( 'Continue Search in Next Category', 'lvjm_lang' ); ?></button>
+                                                                                                                <button class="btn btn-danger" style="margin-left:5px;" v-on:click.prevent="stopPerformerCategorySearch"><span aria-hidden="true">🛑</span> <?php esc_html_e( 'Stop Here', 'lvjm_lang' ); ?></button>
+                                                                                                        </div>
+                                                                                                        <div v-if="performerSummaryComplete && performerCategorySummaries.length" class="margin-top-20">
+                                                                                                                <h4><?php esc_html_e( 'Performer Search Summary', 'lvjm_lang' ); ?></h4>
+                                                                                                                <div class="table-responsive">
+                                                                                                                        <table class="table table-bordered table-striped table-condensed">
+                                                                                                                                <thead>
+                                                                                                                                        <tr>
+                                                                                                                                                <th><?php esc_html_e( 'Category', 'lvjm_lang' ); ?></th>
+                                                                                                                                                <th><?php esc_html_e( 'Results Found', 'lvjm_lang' ); ?></th>
+                                                                                                                                        </tr>
+                                                                                                                                </thead>
+                                                                                                                                <tbody>
+                                                                                                                                        <tr v-for="summary in performerCategorySummaries" v-bind:key="'summary-' + (summary.id ? summary.id : summary.name)">
+                                                                                                                                                <td>{{ summary.name }}</td>
+                                                                                                                                                <td>{{ summary.results }}</td>
+                                                                                                                                        </tr>
+                                                                                                                                </tbody>
+                                                                                                                        </table>
+                                                                                                                </div>
+                                                                                                        </div>
                                                                                                         <?php /* translators: %s: number of videos in the search results */ ?>
                                                                                                        <small><i class="fa fa-info-circle" aria-hidden="true"></i> <?php printf( esc_html__( 'Each search displays up to %s videos at a time, including previously imported ones (marked as ✅ Already Imported).', 'lvjm_lang' ), '{{data.videosLimit}}' ); ?></small>
                                                                                                 </div>
