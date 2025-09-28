@@ -446,8 +446,24 @@ function LVJM_pageImportVideos() {
                     options = options || {};
                     this.performerSearchMode = options.mode || (this.selectedCat === 'all_straight' ? 'all_straight' : 'performer');
 
+                    var self = this;
                     var onlyStraight = this.performerSearchMode === 'all_straight';
-                    this.performerCategoryQueue = this.flattenPartnerCategories({ onlyStraight: onlyStraight });
+                    var categories = this.flattenPartnerCategories({ onlyStraight: onlyStraight });
+
+                    if (this.selectedCat && this.selectedCat !== 'all_straight') {
+                        var prioritizedCategory = null;
+                        lodash.each(categories, function (category) {
+                            if (!prioritizedCategory && category.id === self.selectedCat) {
+                                prioritizedCategory = category;
+                            }
+                        });
+
+                        if (prioritizedCategory) {
+                            categories = [prioritizedCategory];
+                        }
+                    }
+
+                    this.performerCategoryQueue = categories;
                     this.performerSearchIndex = 0;
                     this.performerSeenIds = {};
                     this.performerSearchActive = true;
