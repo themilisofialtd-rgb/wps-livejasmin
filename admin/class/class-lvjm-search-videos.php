@@ -184,7 +184,7 @@ class LVJM_Search_Videos {
                                         error_log( '[WPS-LiveJasmin] Using client IP for video search feed: ' . $client_ip );
                                         $params    = array(
                                                 'site'              => 'wl3',
-                                                'tags'              => isset( $this->params['cat_s'] ) ? urlencode( $this->params['cat_s'] ) : '',
+                                                'tags'              => isset( $this->params['cat_s'] ) ? $this->params['cat_s'] : '',
                                                 'sexualOrientation' => 'straight',
                                                 'language'          => 'en',
                                                 'clientIp'          => $client_ip,
