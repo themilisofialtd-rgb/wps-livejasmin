@@ -33,7 +33,7 @@ function lvjmNormalizePerformerQuery(input) {
             return '';
         }
 
-        return firstChar.toLocaleUpperCase() + characters.join('');
+        return firstChar.toLocaleUpperCase() + characters.join('').toLocaleLowerCase();
     }).join('');
 }
 

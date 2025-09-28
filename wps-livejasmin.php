@@ -816,12 +816,20 @@ if ( ! function_exists( 'lvjm_normalize_performer_query' ) ) {
 
                                 if ( false === $rest ) {
                                         $rest = '';
+                                } else {
+                                        $rest = mb_strtolower( $rest, 'UTF-8' );
                                 }
 
                                 $normalized[] = mb_strtoupper( $first_char, 'UTF-8' ) . $rest;
                         } else {
                                 $first_char   = substr( $word, 0, 1 );
                                 $rest         = substr( $word, 1 );
+                                if ( false === $rest ) {
+                                        $rest = '';
+                                } else {
+                                        $rest = strtolower( $rest );
+                                }
+
                                 $normalized[] = strtoupper( $first_char ) . $rest;
                         }
                 }
