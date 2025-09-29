@@ -147,11 +147,10 @@ function lvjm_import_videos_page() {
 															<span id="kw-search" v-show="selectedPartnerObject.filters.search_by == 'keyword'">
 															<strong>- <?php esc_html_e( 'OR', 'lvjm_lang' ); ?> -</strong> <?php esc_html_e( 'Enter some keywords', 'lvjm_lang' ); ?> <input v-model="selectedKW" v-bind:disabled="searchingVideos" v-on:keyup.enter.prevent="searchVideos('create')" id="kw_s" type="text" placeholder="<?php esc_html_e( 'eg. ebony lesbian', 'lvjm_lang' ); ?>" name="kw_s" class="form-control" style="width:250px;">
 															</span>
-                                                                                        <span id="performer-search" style="margin-left:8px;">
-                                                                                                <label for="performer_s" class="sr-only"><?php esc_html_e( 'Performer', 'lvjm_lang' ); ?></label>
-                                                                                                <textarea v-model="selectedPerformer" placeholder="<?php esc_attr_e( 'Performer (optional)', 'lvjm_lang' ); ?>" id="performer_s" name="performer_s" class="form-control" style="width:220px;height:70px;resize:vertical;" rows="3"></textarea>
-                                                                                                <small class="help-block" style="margin-bottom:0;"><?php esc_html_e( 'Separate multiple performers with commas or new lines.', 'lvjm_lang' ); ?></small>
-                                                                                        </span>
+											<span id="performer-search" style="margin-left:8px;">
+												<label for="performer_s" class="sr-only"><?php esc_html_e( 'Performer', 'lvjm_lang' ); ?></label>
+												<input type="text" v-model="selectedPerformer" placeholder="<?php esc_attr_e( 'Performer (optional)', 'lvjm_lang' ); ?>" id="performer_s" name="performer_s" class="form-control" style="width:220px;">
+											</span>
 
 														</div>
 													</div>
@@ -171,48 +170,8 @@ function lvjm_import_videos_page() {
 									</div>
 									<!-- / search videos block -->
 									<!-- results success block -->
-                                                                        <div class="row">
-
-                                                                                                                <div v-if="performerSearchMode" class="col-xs-12">
-                                                                                                <div v-if="searchingVideos" class="alert alert-info">
-                                                                                                                <p><?php esc_html_e( 'Searching category', 'lvjm_lang' ); ?> {{ searchProgress.currentCategory || '...' }} <?php esc_html_e( 'for', 'lvjm_lang' ); ?> {{ searchProgress.currentPerformer || selectedPerformer }}&hellip;</p>
-                                                                                                                <p><?php esc_html_e( 'Videos found so far', 'lvjm_lang' ); ?>: {{ searchProgress.videosFound }}</p>
-                                                                                                </div>
-												<div v-if="!searchingVideos && noPerformerVideos.length" class="alert alert-warning">
-														<p v-for="(name, index) in noPerformerVideos" v-bind:key="index"><?php esc_html_e( 'No promo videos available for', 'lvjm_lang' ); ?> {{ name || (data.objectL10n && data.objectL10n.no_performer_filter ? data.objectL10n.no_performer_filter : '<?php esc_html_e( 'No performer filter', 'lvjm_lang' ); ?>') }} <?php esc_html_e( 'in straight categories.', 'lvjm_lang' ); ?></p>
-												</div>
-                                                                                                                </div>
-
-<div v-if="performerReports.length" class="col-xs-12 margin-top-10">
-                                                                                        <h4 class="margin-top-0"><?php esc_html_e( 'All Categories search summary', 'lvjm_lang' ); ?></h4>
-                                                                                        <div class="panel panel-default" v-for="(report, index) in performerReports" v-bind:key="index" style="margin-bottom:15px;">
-                                                                                                <div class="panel-heading clearfix">
-                                                                                                        <strong>{{ report.display_name || report.name }}</strong>
-                                                                                                        <span class="pull-right" v-bind:class="[report.status ? 'text-success' : 'text-danger']">{{ report.status ? '✅' : '❌' }}</span>
-                                                                                                </div>
-                                                                                                <div class="panel-body">
-                                                                                                        <p class="margin-bottom-10"><strong>{{ report.video_count }}</strong> <?php esc_html_e( 'videos found across all categories.', 'lvjm_lang' ); ?></p>
-                                                                                                        <div v-if="report.category_reports && report.category_reports.length">
-                                                                                                                <table class="table table-condensed table-striped margin-bottom-0">
-                                                                                                                        <thead>
-                                                                                                                                <tr>
-                                                                                                                                        <th><?php esc_html_e( 'Category', 'lvjm_lang' ); ?></th>
-                                                                                                                                        <th class="text-right"><?php esc_html_e( 'Videos', 'lvjm_lang' ); ?></th>
-                                                                                                                                </tr>
-                                                                                                                        </thead>
-                                                                                                                        <tbody>
-                                                                                                                                <tr v-for="category in report.category_reports" v-bind:key="category.id" v-bind:class="{'success': parseInt(category.videos_found, 10) > 0}">
-                                                                                                                                        <td>{{ category.name }}</td>
-                                                                                                                                        <td class="text-right">{{ category.videos_found }}</td>
-                                                                                                                                </tr>
-                                                                                                                        </tbody>
-                                                                                                                </table>
-                                                                                                        </div>
-                                                                                                        <p v-else class="text-muted margin-bottom-0"><?php esc_html_e( 'No categories were returned for this performer.', 'lvjm_lang' ); ?></p>
-                                                                                                </div>
-                                                                                        </div>
-                                                                                </div>
-                                                                                <div class="col-xs-12" v-show="videosCounter <= 0 && videosHasBeenSearched">
+									<div class="row">
+										<div class="col-xs-12" v-show="videosCounter <= 0 && videosHasBeenSearched">                                        
 											<div v-if="videosSearchedErrors.code" class="alert alert-danger margin-top-10 text-center alert-dismissible" role="alert">
 												<button type="button" class="close" v-on:click.prevent="resetSearch" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 												<p><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> <strong>{{videosSearchedErrors.code}}</strong><br>{{videosSearchedErrors.message}}<br>-<br>{{videosSearchedErrors.solution}}</p>
@@ -235,8 +194,8 @@ function lvjm_import_videos_page() {
 										</div>
 										<transition name="fade">
 											<div v-show="videosCounter > 0" id="videos-found" class="col-xs-12 margin-top-10">
-                                                                                                <div id="sticky-space" class="col-xs-12"></div>
-                                                                                                <div id="videos-found-header" class="col-xs-12">
+												<div id="sticky-space" class="col-xs-12"></div>
+												<div id="videos-found-header" class="col-xs-12">
 													<h3><i class="fa" v-bind:class="[displayType == 'cards' ? 'fa-th' : 'fa-list-ul']"></i> 
 														<?php esc_html_e( 'Search results', 'lvjm_lang' ); ?> 
 														<template v-if="searchFromFeed">

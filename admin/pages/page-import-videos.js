@@ -90,6 +90,7 @@ function LVJM_pageImportVideos() {
 
                 partnerCatsLoading: false,
                 partnerCats: [],
+                selectedPartnerCats: '',
 
                 // allPartnersCounter: 0,
                 filteredPartnersCounter: 0,
@@ -110,20 +111,6 @@ function LVJM_pageImportVideos() {
                 videosHasBeenSearched: false,
                 videosSearchedErrors: {},
                 searchedData: {},
-                performerSearchMode: false,
-                searchProgress: {
-                    currentCategory: '',
-                    currentPerformer: '',
-                    videosFound: 0
-                },
-                categoryQueue: [],
-                currentCategoryIndex: 0,
-                foundVideoIds: [],
-                noPerformerVideos: [],
-                multiCategorySummary: [],
-                multiCategorySummaryIndex: {},
-                performerList: [],
-                progressiveSearchParams: {},
 
                 currentVideo: '',
                 currentVideoUrl: '',
@@ -220,13 +207,6 @@ function LVJM_pageImportVideos() {
                     }).length;
                 },
                 selectedPartnerCatName: function () {
-                    if (this.selectedCat === 'all_categories') {
-                        if (this.data.objectL10n && this.data.objectL10n.all_categories) {
-                            return this.data.objectL10n.all_categories;
-                        }
-                        return 'All Categories';
-                    }
-
                     var self = this;
                     if (this.selectedPartnerObject != '') {
                         var name;
@@ -272,16 +252,6 @@ function LVJM_pageImportVideos() {
                 },
                 videosCounter: function () {
                     return this.videos.length;
-                },
-                performerReports: function () {
-                    if (Array.isArray(this.multiCategorySummary) && this.multiCategorySummary.length) {
-                        return this.multiCategorySummary;
-                    }
-                    if (!this.searchedData || !this.searchedData.multi_category) {
-                        return [];
-                    }
-                    var reports = this.searchedData.multi_category.performer_reports;
-                    return Array.isArray(reports) ? reports : [];
                 },
                 searchBtnClass: function () {
                     if (this.selectedCat == '' && this.selectedKW == '') {
@@ -356,244 +326,13 @@ function LVJM_pageImportVideos() {
                 }
             },
             methods: {
-                parsePerformerInput: function (raw) {
-                    if (!raw) {
-                        return [];
-                    }
-                    var parsed = raw.split(/[\n,]+/).map(function (name) {
-                        return name.trim();
-                    }).filter(function (name) {
-                        return name.length > 0;
-                    });
-                    return lodash.uniq(parsed);
-                },
-                getStraightCategories: function () {
-                    var categories = [];
-                    (this.partnerCats || []).forEach(function (cat) {
-                        if (!cat) {
-                            return;
-                        }
-                        if (cat.id === 'optgroup') {
-                            if (cat.name && cat.name.toLowerCase() === 'straight' && Array.isArray(cat.sub_cats)) {
-                                cat.sub_cats.forEach(function (subCat) {
-                                    if (!subCat || !subCat.id) {
-                                        return;
-                                    }
-                                    var id = subCat.id.toString().toLowerCase();
-                                    if (id.indexOf('gay') !== -1 || id.indexOf('shemale') !== -1 || id.indexOf('trans') !== -1) {
-                                        return;
-                                    }
-                                    categories.push({
-                                        id: subCat.id,
-                                        name: subCat.name || subCat.id
-                                    });
-                                });
-                            }
-                            return;
-                        }
-                        if (!cat.id || cat.id === 'all_categories') {
-                            return;
-                        }
-                        var candidate = cat.id.toString().toLowerCase();
-                        if (candidate.indexOf('gay') !== -1 || candidate.indexOf('shemale') !== -1 || candidate.indexOf('trans') !== -1) {
-                            return;
-                        }
-                        categories.push({
-                            id: cat.id,
-                            name: cat.name || cat.id
-                        });
-                    });
-                    return lodash.sortBy(categories, function (item) {
-                        return item.name.toLowerCase();
-                    });
-                },
-                resetPerformerSearchState: function () {
-                    this.performerSearchMode = false;
-                    this.searchProgress.currentCategory = '';
-                    this.searchProgress.currentPerformer = '';
-                    this.searchProgress.videosFound = 0;
-                    this.categoryQueue = [];
-                    this.currentCategoryIndex = 0;
-                    this.foundVideoIds = [];
-                    this.noPerformerVideos = [];
-                    this.multiCategorySummary = [];
-                    this.multiCategorySummaryIndex = {};
-                    this.performerList = [];
-                    this.progressiveSearchParams = {};
-                },
-                formatVideoForList: function (video) {
-                    return {
-                        id: video.id,
-                        title: video.title,
-                        thumb_url: video.thumb_url,
-                        thumbs_urls: video.thumbs_urls,
-                        trailer_url: video.trailer_url,
-                        desc: video.desc,
-                        embed: video.embed,
-                        tracking_url: video.tracking_url,
-                        duration: video.duration,
-                        quality: video.quality,
-                        isHd: video.isHd,
-                        uploader: video.uploader,
-                        actors: video.actors,
-                        tags: video.tags,
-                        video_url: video.video_url,
-                        checked: video.checked,
-                        grabbed: false,
-                        loading: {
-                            removing: false
-                        }
-                    };
-                },
-                addVideosFromResponse: function (videos) {
-                    var self = this;
-                    if (!Array.isArray(videos)) {
-                        return;
-                    }
-                    videos.forEach(function (video) {
-                        if (!video || !video.id) {
-                            return;
-                        }
-                        if (self.foundVideoIds.indexOf(video.id) !== -1) {
-                            return;
-                        }
-                        self.foundVideoIds.push(video.id);
-                        self.videos.push(self.formatVideoForList(video));
-                    });
-                },
-                startPerformerSearch: function (options) {
-                    this.resetPerformerSearchState();
-                    this.performerSearchMode = true;
-                    this.performerList = options.performers;
-                    this.categoryQueue = this.getStraightCategories();
-                    this.currentCategoryIndex = 0;
-                    this.progressiveSearchParams = options;
-                    this.firstImport = options.method === 'create';
-                    this.searchProgress.currentPerformer = this.performerList.join(', ');
-                    this.searchProgress.videosFound = 0;
-                    var summary = [];
-                    var indexMap = {};
-                    var defaultLabel = this.data && this.data.objectL10n && this.data.objectL10n.no_performer_filter ? this.data.objectL10n.no_performer_filter : 'No performer filter';
-                    this.performerList.forEach(function (name, idx) {
-                        var display = name !== undefined && name !== null && name !== '' ? name : defaultLabel;
-                        summary.push({
-                            name: name,
-                            display_name: display,
-                            video_count: 0,
-                            status: false,
-                            category_reports: []
-                        });
-                        indexMap[name] = idx;
-                    });
-                    this.multiCategorySummary = summary;
-                    this.multiCategorySummaryIndex = indexMap;
-                    if (!this.categoryQueue.length) {
-                        this.finalizePerformerSearch();
-                        return;
-                    }
-                    this.processNextCategory();
-                },
-                processNextCategory: function () {
-                    var self = this;
-                    if (!this.performerSearchMode) {
-                        return;
-                    }
-                    if (this.currentCategoryIndex >= this.categoryQueue.length) {
-                        this.finalizePerformerSearch();
-                        return;
-                    }
-                    var category = this.categoryQueue[this.currentCategoryIndex];
-                    this.searchProgress.currentCategory = category.name;
-                    this.searchProgress.videosFound = this.foundVideoIds.length;
-                    var payload = {
-                        action: 'lvjm_search_videos',
-                        nonce: LVJM_import_videos.ajax.nonce,
-                        progressive: 1,
-                        category_id: category.id,
-                        category_name: category.name,
-                        performer: this.performerList.join(','),
-                        log_performer: this.performerList.join(', '),
-                        partner: this.progressiveSearchParams.partner,
-                        limit: this.progressiveSearchParams.limit,
-                        method: this.progressiveSearchParams.method,
-                        kw: this.progressiveSearchParams.kw,
-                        cat_s: this.progressiveSearchParams.cat_s,
-                        from: this.progressiveSearchParams.from,
-                        original_cat_s: this.progressiveSearchParams.original_cat_s,
-                        multi_category_search: 1
-                    };
-                    if (this.progressiveSearchParams.feed_id) {
-                        payload.feed_id = this.progressiveSearchParams.feed_id;
-                    }
-                    this.$http.post(
-                        LVJM_import_videos.ajax.url,
-                        payload,
-                        { emulateJSON: true }
-                    ).then(function (response) {
-                        if (response && response.body) {
-                            self.handleCategorySuccess(response.body, category);
-                        }
-                    }, function (response) {
-                        console.error(response);
-                    }).then(function () {
-                        self.currentCategoryIndex += 1;
-                        self.processNextCategory();
-                    });
-                },
-                handleCategorySuccess: function (data, category) {
-                    if (!data) {
-                        return;
-                    }
-                    this.addVideosFromResponse(data.videos || []);
-                    var matches = data.matches || {};
-                    var self = this;
-                    this.performerList.forEach(function (name) {
-                        var idx = self.multiCategorySummaryIndex[name];
-                        if (typeof idx === 'undefined') {
-                            return;
-                        }
-                        var summary = self.multiCategorySummary[idx];
-                        var count = matches[name] ? parseInt(matches[name], 10) : 0;
-                        if (isNaN(count)) {
-                            count = 0;
-                        }
-                        summary.video_count = (summary.video_count || 0) + count;
-                        summary.status = summary.video_count > 0;
-                        summary.category_reports.push({
-                            id: category.id,
-                            name: category.name,
-                            videos_found: count
-                        });
-                    });
-                    this.searchProgress.videosFound = this.foundVideoIds.length;
-                },
-                finalizePerformerSearch: function () {
-                    var self = this;
-                    this.performerSearchMode = false;
-                    this.videosHasBeenSearched = true;
-                    this.searchingVideos = false;
-                    this.searchProgress.currentCategory = '';
-                    this.searchProgress.currentPerformer = '';
-                    this.searchProgress.videosFound = this.foundVideoIds.length;
-                    this.searchedData = {
-                        multi_category: {
-                            performer_reports: this.multiCategorySummary
-                        }
-                    };
-                    this.noPerformerVideos = this.performerList.filter(function (name) {
-                        var idx = self.multiCategorySummaryIndex[name];
-                        if (typeof idx === 'undefined') {
-                            return false;
-                        }
-                        return parseInt(self.multiCategorySummary[idx].video_count, 10) === 0;
-                    });
-                    jQuery('[data-id="sort_partners"]').prop('disabled', false);
-                    jQuery('[data-id="cat_s_select"]').prop('disabled', false);
-                    jQuery('[data-id="partner_select"]').prop('disabled', false);
-                    stickNav();
-                },
                 loadPartnerCats: function () {
                     this.partnerCatsLoading = true;
+                    
+                    // Injected: support for All Straight Categories
+                    if (this.selectedPartnerCats === 'all_straight') {
+                        postData.multi_category_search = 1;
+                    }
 
                     this.$http.post(
     
@@ -662,16 +401,12 @@ function LVJM_pageImportVideos() {
 
                     var cat_s = '';
                     var kw = '';
-                    var partner = null;
+                    var partnerId = '';
 
                     //reset searching states
                     this.videos = [];
                     this.searchingVideos = true;
                     this.videosHasBeenSearched = false;
-                    this.videosSearchedErrors = {};
-                    this.searchedData = {};
-                    this.resetPerformerSearchState();
-                    this.foundVideoIds = [];
 
                     if (feedId === undefined) {
 
@@ -713,26 +448,17 @@ function LVJM_pageImportVideos() {
                         this.searchFromFeed = true;
                     }
 
-                    var performerInput = this.parsePerformerInput(this.selectedPerformer);
-                    var usePerformerProgressive = performerInput.length > 0 && feedId === undefined;
+                    //reset tooltips states
+                    //jQuery('[rel=tooltip]').tooltip('hide');
 
-                    if (usePerformerProgressive) {
-                        this.startPerformerSearch({
-                            performers: performerInput,
-                            partner: partner,
-                            limit: this.data.videosLimit,
-                            method: method,
-                            kw: kw,
-                            cat_s: cat_s,
-                            from: 'manual',
-                            original_cat_s: cat_s.replace('&', '%%'),
-                            feed_id: feedId
-                        });
-                        return;
+                    
+                    // Injected: support for All Straight Categories
+                    if (this.selectedPartnerCats === 'all_straight') {
+                        postData.multi_category_search = 1;
                     }
 
                     this.$http.post(
-
+    
                             LVJM_import_videos.ajax.url, {
                                 action: 'lvjm_search_videos',
                                 cat_s: cat_s,
@@ -742,7 +468,6 @@ function LVJM_pageImportVideos() {
                                 limit: this.data.videosLimit,
                                 method: method,
                                 nonce: LVJM_import_videos.ajax.nonce,
-                                multi_category_search: (this.selectedCat === 'all_categories' || performerInput.length > 0) ? 1 : 0,
                                 original_cat_s: cat_s.replace('&', '%%'),
                                 partner: partner,
                                 performer: this.selectedPerformer
@@ -750,12 +475,40 @@ function LVJM_pageImportVideos() {
                                 emulateJSON: true
                             })
                         .then(function (response) {
+                            var videos = this.videos;
                             if (lodash.isEmpty(response.body.errors)) {
-                                this.searchedData = response.body.searched_data || {};
-                                this.addVideosFromResponse(response.body.videos || []);
+                                this.searchedData = response.body.searched_data;
+                                lodash.each(response.body.videos, function (video) {
+                                    videos.push({
+                                        id: video.id,
+                                        title: video.title,
+                                        thumb_url: video.thumb_url,
+//                                        thumbs_urls: video.thumbs_urls.split(','),
+                                        thumbs_urls: video.thumbs_urls,
+                                        trailer_url: video.trailer_url,
+                                        desc: video.desc,
+                                        embed: video.embed,
+                                        tracking_url: video.tracking_url,
+                                        duration: video.duration,
+                                        quality: video.quality,
+                                        isHd: video.isHd,
+                                        uploader: video.uploader,
+                                        actors: video.actors,
+                                        tags: video.tags,
+                                        video_url: video.video_url,
+                                        checked: video.checked,
+                                        grabbed: false,
+                                        loading: {
+                                            removing: false
+                                        }
+                                    });
+                                });
                             } else {
                                 this.videosSearchedErrors = response.body.errors;
                             }
+                            delete errors;
+                            delete response;
+                            delete videos;
                             if (method == 'create') {
                                 this.firstImport = true;
                             } else {
@@ -840,6 +593,11 @@ function LVJM_pageImportVideos() {
                     video.loading.removing = true;
                     this.loading.removingVideo = true;
                     
+                    // Injected: support for All Straight Categories
+                    if (this.selectedPartnerCats === 'all_straight') {
+                        postData.multi_category_search = 1;
+                    }
+
                     this.$http.post(
     
                             LVJM_import_videos.ajax.url, {
@@ -1055,6 +813,11 @@ function LVJM_pageImportVideos() {
                 deleteFeed: function () {
                     this.loading.deleteFeed = true;
                     
+                    // Injected: support for All Straight Categories
+                    if (this.selectedPartnerCats === 'all_straight') {
+                        postData.multi_category_search = 1;
+                    }
+
                     this.$http.post(
     
                             LVJM_import_videos.ajax.url, {
@@ -1084,6 +847,11 @@ function LVJM_pageImportVideos() {
                 this.loading.loadingData = true;
                 var self = this;
                 
+                    // Injected: support for All Straight Categories
+                    if (this.selectedPartnerCats === 'all_straight') {
+                        postData.multi_category_search = 1;
+                    }
+
                     this.$http.post(
     
                         LVJM_import_videos.ajax.url, {
@@ -1321,6 +1089,11 @@ function LVJM_pageImportVideos() {
                         saveOptions: function () {
                             this.loading.savingOptions = true;
                             
+                    // Injected: support for All Straight Categories
+                    if (this.selectedPartnerCats === 'all_straight') {
+                        postData.multi_category_search = 1;
+                    }
+
                     this.$http.post(
     
                                     LVJM_import_videos.ajax.url, {
@@ -1494,6 +1267,11 @@ function LVJM_pageImportVideos() {
                         changeStatus: function (newValue) {
                             this.loading.savingOptions = this.loading.savingStatus = true;
                             
+                    // Injected: support for All Straight Categories
+                    if (this.selectedPartnerCats === 'all_straight') {
+                        postData.multi_category_search = 1;
+                    }
+
                     this.$http.post(
     
                                     LVJM_import_videos.ajax.url, {
@@ -1517,6 +1295,11 @@ function LVJM_pageImportVideos() {
                         toggleAutoImport: function (newValue) {
                             this.loading.savingOptions = this.loading.savingAutoImport = true;
                             
+                    // Injected: support for All Straight Categories
+                    if (this.selectedPartnerCats === 'all_straight') {
+                        postData.multi_category_search = 1;
+                    }
+
                     this.$http.post(
     
                                     LVJM_import_videos.ajax.url, {
