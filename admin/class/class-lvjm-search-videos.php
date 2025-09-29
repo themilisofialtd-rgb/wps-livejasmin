@@ -629,9 +629,10 @@ class LVJM_Search_Videos {
 	 * @return bool true if there are no error, false if not.
 	 */
 	private function retrieve_videos_from_json_feed() {
-		$existing_ids           = $this->get_partner_existing_ids();
-		$array_valid_videos     = array();
-		$counters               = array(
+                $existing_ids           = $this->get_partner_existing_ids();
+                $include_existing       = ! empty( $this->params['include_existing'] );
+                $array_valid_videos     = array();
+                $counters               = array(
 			'valid_videos'    => 0,
 			'invalid_videos'  => 0,
 			'existing_videos' => 0,
@@ -729,48 +730,77 @@ class LVJM_Search_Videos {
 				$raw_feed_item = $array_feed[ $current_item ];
 				$feed_item     = new LVJM_Json_Item( $raw_feed_item );
 				$feed_item->init( $this->params, $this->feed_infos );
-				if ( $feed_item->is_valid() ) {
-					$matching_performers = $this->find_matching_performers( $raw_feed_item, $normalized_performer );
+                                if ( $feed_item->is_valid() ) {
+                                        $matching_performers = $this->find_matching_performers( $raw_feed_item, $normalized_performer );
 
-					if ( $require_performer_match && $local_performers_existing && empty( $matching_performers ) ) {
-						++$current_item;
-						continue;
-					}
+                                        if ( $require_performer_match && $local_performers_existing && empty( $matching_performers ) ) {
+                                                ++$current_item;
+                                                continue;
+                                        }
 
-					if ( ! in_array( $feed_item->get_id(), (array) $existing_ids['partner_all_videos_ids'], true ) ) {
-						$video_payload = (array) $feed_item->get_data_for_json( $count_valid_feed_items );
+                                        $video_id             = $feed_item->get_id();
+                                        $is_existing_video    = in_array( $video_id, (array) $existing_ids['partner_existing_videos_ids'], true );
+                                        $is_removed_video     = in_array( $video_id, (array) $existing_ids['partner_unwanted_videos_ids'], true );
+                                        $was_previously_seen  = in_array( $video_id, (array) $existing_ids['partner_all_videos_ids'], true );
+                                        $should_include_video = true;
 
-						if ( ! empty( $matching_performers ) ) {
-							$video_payload['actors'] = implode( ', ', $matching_performers );
-						}
+                                        if ( $was_previously_seen && ! $include_existing ) {
+                                                $should_include_video = false;
+                                        }
 
-						$array_valid_videos[] = $video_payload;
-						$videos_details[]     = array(
-							'id'       => $feed_item->get_id(),
-							'response' => 'Success',
-						);
-						++$counters['valid_videos'];
-						++$count_valid_feed_items;
-					} elseif ( in_array( $feed_item->get_id(), (array) $existing_ids['partner_existing_videos_ids'], true ) ) {
-							$videos_details[] = array(
-								'id'       => $feed_item->get_id(),
-								'response' => 'Already imported',
-							);
-							++$counters['existing_videos'];
-					} elseif ( in_array( $feed_item->get_id(), (array) $existing_ids['partner_unwanted_videos_ids'], true ) ) {
-						$videos_details[] = array(
-							'id'       => $feed_item->get_id(),
-							'response' => 'You removed it from search results',
-						);
-						++$counters['removed_videos'];
-					}
-				} else {
-					$videos_details[] = array(
-						'id'       => $feed_item->get_id(),
-						'response' => 'Invalid',
-					);
-					++$counters['invalid_videos'];
-				}
+                                        if ( $is_removed_video ) {
+                                                $should_include_video = false;
+                                        }
+
+                                        if ( $should_include_video ) {
+                                                $video_payload = (array) $feed_item->get_data_for_json( $count_valid_feed_items );
+
+                                                if ( ! empty( $matching_performers ) ) {
+                                                        $video_payload['actors'] = implode( ', ', $matching_performers );
+                                                }
+
+                                                $performer_candidates = $this->extract_performer_candidates( $raw_feed_item );
+                                                if ( ! empty( $performer_candidates ) ) {
+                                                        $video_payload['lvjm_performer_candidates'] = $performer_candidates;
+                                                }
+
+                                                if ( $include_existing && $is_existing_video ) {
+                                                        $video_payload['grabbed'] = true;
+                                                }
+
+                                                $array_valid_videos[] = $video_payload;
+                                                $videos_details[]     = array(
+                                                        'id'       => $video_id,
+                                                        'response' => $is_existing_video ? 'Already imported' : 'Success',
+                                                );
+
+                                                if ( $is_existing_video ) {
+                                                        ++$counters['existing_videos'];
+                                                } else {
+                                                        ++$counters['valid_videos'];
+                                                }
+
+                                                ++$count_valid_feed_items;
+                                        } elseif ( $was_previously_seen ) {
+                                                $videos_details[] = array(
+                                                        'id'       => $video_id,
+                                                        'response' => 'Already imported',
+                                                );
+                                                ++$counters['existing_videos'];
+                                        } elseif ( $is_removed_video ) {
+                                                $videos_details[] = array(
+                                                        'id'       => $video_id,
+                                                        'response' => 'You removed it from search results',
+                                                );
+                                                ++$counters['removed_videos'];
+                                        }
+                                } else {
+                                        $videos_details[] = array(
+                                                'id'       => $feed_item->get_id(),
+                                                'response' => 'Invalid',
+                                        );
+                                        ++$counters['invalid_videos'];
+                                }
 				if ( ( $count_valid_feed_items >= $this->params['limit'] ) || $current_item >= ( $count_total_feed_items - 1 ) ) {
 					$page_end = true;
 					++$current_page;
