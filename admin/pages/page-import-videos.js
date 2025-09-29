@@ -712,7 +712,15 @@ function LVJM_pageImportVideos() {
                                 trackSeen: true
                             });
                             var resultsCount = 0;
-                            if (response.body && lodash.isArray(response.body.videos)) {
+                            if (response.body && response.body.searched_data && response.body.searched_data.pagination) {
+                                var paginationInfo = response.body.searched_data.pagination;
+                                if (lodash.isNumber(paginationInfo.totalCount) && paginationInfo.totalCount > 0) {
+                                    resultsCount = paginationInfo.totalCount;
+                                } else if (lodash.isNumber(paginationInfo.count)) {
+                                    resultsCount = paginationInfo.count;
+                                }
+                            }
+                            if (!resultsCount && response.body && lodash.isArray(response.body.videos)) {
                                 resultsCount = response.body.videos.length;
                             }
                             self.recordPerformerCategoryResult({ id: category.id, name: category.name }, resultsCount, added);
@@ -810,7 +818,15 @@ function LVJM_pageImportVideos() {
                                 onlyNew: true
                             });
                             var resultsCount = 0;
-                            if (response.body && lodash.isArray(response.body.videos)) {
+                            if (response.body && response.body.searched_data && response.body.searched_data.pagination) {
+                                var fallbackPagination = response.body.searched_data.pagination;
+                                if (lodash.isNumber(fallbackPagination.totalCount) && fallbackPagination.totalCount > 0) {
+                                    resultsCount = fallbackPagination.totalCount;
+                                } else if (lodash.isNumber(fallbackPagination.count)) {
+                                    resultsCount = fallbackPagination.count;
+                                }
+                            }
+                            if (!resultsCount && response.body && lodash.isArray(response.body.videos)) {
                                 resultsCount = response.body.videos.length;
                             }
                             self.recordPerformerCategoryResult({ id: '', name: 'All Categories' }, resultsCount, added);
