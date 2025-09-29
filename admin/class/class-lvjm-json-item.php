@@ -8,8 +8,6 @@
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || die( 'Cheatin&#8217; uh?' );
 
-require_once LVJM_DIR . 'admin/class/class-lvjm-placeholder-parser.php';
-
 /**
  * Json Item Class
  *
@@ -153,26 +151,32 @@ class LVJM_Json_Item {
 	 *
 	 * @return string|bool The feed info if success, false if not.
 	 */
-        private function get_partner_feed_infos( $partner_feed_item, $partner_id, $feed_infos ) {
+	private function get_partner_feed_infos( $partner_feed_item, $partner_id, $feed_infos ) {
 
-                $feed_item_type = isset( $feed_infos[ $partner_feed_item ] ) ? key( $feed_infos[ $partner_feed_item ] ) : null;
+		$feed_item_type = isset( $feed_infos[ $partner_feed_item ] ) ? key( $feed_infos[ $partner_feed_item ] ) : null;
 
-                if ( isset( $feed_infos[ $partner_feed_item ][ $feed_item_type ] ) ) {
-                        $template              = $feed_infos[ $partner_feed_item ][ $feed_item_type ];
-                        $saved_partner_options = WPSCORE()->get_product_option( 'LVJM', $partner_id . '_options' );
-                        $context               = array(
-                                'partner_options' => is_array( $saved_partner_options ) ? $saved_partner_options : array(),
-                                'params'          => $this->params,
-                                'item'            => $this->item,
-                                'item_all_data'   => $this->item_all_data,
-                        );
+		if ( isset( $feed_infos[ $partner_feed_item ][ $feed_item_type ] ) ) {
+			$short_item = $feed_infos[ $partner_feed_item ][ $feed_item_type ];
+			$results    = array();
+			preg_match_all( '/<%(.+)%>/U', $short_item, $results );
 
-                        $short_item = LVJM_Placeholder_Parser::parse( $template, $context );
-                        switch ( $feed_item_type ) {
+			foreach ( $results[1] as $result ) {
+				if ( strpos( $result, 'get_partner_option' ) !== false ) {
+					$saved_partner_options = WPSCORE()->get_product_option( 'LVJM', $partner_id . '_options' );
+					$option                = str_replace( array( 'get_partner_option("', '")' ), array( '', '' ), $result );
+					$new_result            = '$saved_partner_options["' . $option . '"]';
+					$short_item            = str_replace( '<%' . $result . '%>', eval( 'return ' . $new_result . ';' ), $partner_feed_item );
 
-                                case 'node':
-                                        if ( is_array( $this->item_all_data[ $short_item ] ) ) {
-                                                $output = isset( $this->item_all_data[ $short_item ][0] ) ? $this->item_all_data[ $short_item ][0] : '';
+				} else {
+					$short_item = str_replace( '<%' . $result . '%>', eval( 'return ' . $result . ';' ), $short_item );
+				}
+			}
+			unset( $results );
+			switch ( $feed_item_type ) {
+
+				case 'node':
+					if ( is_array( $this->item_all_data[ $short_item ] ) ) {
+						$output = isset( $this->item_all_data[ $short_item ][0] ) ? $this->item_all_data[ $short_item ][0] : '';
 					} else {
 						$output = isset( $this->item_all_data[ $short_item ] ) ? $this->item_all_data[ $short_item ] : '';
 					}
