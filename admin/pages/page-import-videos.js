@@ -549,6 +549,8 @@ function LVJM_pageImportVideos() {
                         postData.multi_category_search = 1;
                     }
 
+                    var performer = this.selectedPerformer ? this.selectedPerformer.trim() : '';
+
                     var payload = {
                         action: 'lvjm_search_videos',
                         cat_s: cat_s,
@@ -560,7 +562,7 @@ function LVJM_pageImportVideos() {
                         nonce: LVJM_import_videos.ajax.nonce,
                         original_cat_s: cat_s.replace('&', '%%'),
                         partner: partner,
-                        performer: this.selectedPerformer
+                        performer: performer
                     };
 
                     this.executeSearch(payload, {
