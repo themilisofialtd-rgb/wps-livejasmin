@@ -125,11 +125,8 @@ function lvjm_set_embed_redirect_and_responsiveness( $meta_value, $object_id, $m
                 update_post_meta( $object_id, $custom_embed_player, $more_data['embed'] );
                 // Assign actor
                 $custom_actors = xbox_get_field_value( 'lvjm-options', 'custom-video-actors' );
-		if ( '' === $custom_actors ) { $custom_actors = 'models'; }
-		if ( 'actors' === $custom_actors ) { $custom_actors = 'models'; }
-
-                if ( '' === $custom_actors ) {
-                    $custom_actors = 'actors';
+                if ( '' === $custom_actors || 'actors' === $custom_actors ) {
+                    $custom_actors = 'models';
                 }
                 if ( ! empty( $more_data['performer_name'] ) ) {
                     wp_add_object_terms( $object_id, $more_data['performer_name'], $custom_actors );
@@ -143,11 +140,23 @@ function lvjm_set_embed_redirect_and_responsiveness( $meta_value, $object_id, $m
         // Append redirect parameters to the first script tag
         $script_tag       = $script_tags[0];
         $script_tag->src .= '&' . http_build_query( $redirect_param );
+        if ( method_exists( $script_tag, 'setAttribute' ) ) {
+            $script_tag->setAttribute( 'data-cfasync', 'false' );
+            $script_tag->setAttribute( 'data-noptimize', 'true' );
+        } else {
+            $script_tag->attr['data-cfasync']   = 'false';
+            $script_tag->attr['data-noptimize'] = 'true';
+        }
         // Ensure player wrapper is responsive
         $div_tags = $meta_value_html_obj->find( 'div.player' );
         if ( 0 !== count( $div_tags ) ) {
             $div_tag        = $div_tags[0];
             $div_tag->style = 'width: 100% !important;height: auto !important;aspect-ratio: 16/9;';
+            if ( method_exists( $div_tag, 'setAttribute' ) ) {
+                $div_tag->setAttribute( 'data-noptimize', 'true' );
+            } else {
+                $div_tag->attr['data-noptimize'] = 'true';
+            }
         }
         return $meta_value_html_obj->__toString();
     };
