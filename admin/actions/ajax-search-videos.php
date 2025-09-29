@@ -63,7 +63,73 @@ function lvjm_search_videos( $params = '' ) {
 
     // Performer filtering
     if ( '' !== $performer ) {
-        $filtered = array();
+        $filtered              = array();
+        $normalize_performer   = static function ( $name ) {
+            $name = (string) $name;
+
+            return strtolower( preg_replace( '/[^a-z0-9]/', '', $name ) );
+        };
+        $extract_performer_set = static function ( $video ) {
+            $names = array();
+
+            if ( ! empty( $video['performers'] ) && is_array( $video['performers'] ) ) {
+                $names = $video['performers'];
+            } elseif ( ! empty( $video['models'] ) && is_array( $video['models'] ) ) {
+                $names = $video['models'];
+            } else {
+                return array();
+            }
+
+            if ( isset( $names['data'] ) && is_array( $names['data'] ) ) {
+                $names = $names['data'];
+            } elseif ( is_object( $names ) && isset( $names->data ) && is_array( $names->data ) ) {
+                $names = $names->data;
+            } elseif ( $names instanceof \Traversable ) {
+                $names = iterator_to_array( $names );
+            }
+
+            if ( empty( $names ) || ! is_array( $names ) ) {
+                return array();
+            }
+
+            $collected = array();
+            foreach ( $names as $entry ) {
+                $value = '';
+                if ( is_array( $entry ) ) {
+                    $keys = array( 'name', 'displayName', 'username', 'id' );
+                    foreach ( $keys as $key ) {
+                        if ( isset( $entry[ $key ] ) && '' !== (string) $entry[ $key ] ) {
+                            $value = (string) $entry[ $key ];
+                            break;
+                        }
+                    }
+                } elseif ( is_object( $entry ) ) {
+                    $keys = array( 'name', 'displayName', 'username', 'id' );
+                    foreach ( $keys as $key ) {
+                        if ( isset( $entry->$key ) && '' !== (string) $entry->$key ) {
+                            $value = (string) $entry->$key;
+                            break;
+                        }
+                    }
+                } else {
+                    $value = (string) $entry;
+                }
+
+                $value = trim( $value );
+                if ( '' !== $value ) {
+                    $collected[] = $value;
+                }
+            }
+
+            if ( empty( $collected ) ) {
+                return array();
+            }
+
+            return array_values( array_unique( $collected ) );
+        };
+
+        $normalized_performer = $normalize_performer( $performer );
+
         if ( ! function_exists( 'lvjm_get_embed_and_actors' ) ) {
             $actions_file = dirname( __FILE__ ) . '/ajax-get-embed-and-actors.php';
             if ( file_exists( $actions_file ) ) {
@@ -72,10 +138,29 @@ function lvjm_search_videos( $params = '' ) {
         }
         foreach ( (array) $videos as $v ) {
             $match = false;
-            $actors = isset($v['actors']) ? (string)$v['actors'] : '';
-            if ( '' !== $actors && false !== stripos( $actors, $performer ) ) {
-                $match = true;
-            } elseif ( function_exists( 'lvjm_get_embed_and_actors' ) && isset( $v['id'] ) ) {
+            $names = $extract_performer_set( $v );
+
+            if ( ! empty( $names ) ) {
+                if ( empty( $v['actors'] ) ) {
+                    $v['actors'] = implode( ', ', $names );
+                }
+
+                foreach ( $names as $name ) {
+                    if ( $normalize_performer( $name ) === $normalized_performer ) {
+                        $match = true;
+                        break;
+                    }
+                }
+            }
+
+            if ( ! $match ) {
+                $actors = isset( $v['actors'] ) ? (string) $v['actors'] : '';
+                if ( '' !== $actors && false !== stripos( $actors, $performer ) ) {
+                    $match = true;
+                }
+            }
+
+            if ( ! $match && function_exists( 'lvjm_get_embed_and_actors' ) && isset( $v['id'] ) ) {
                 try {
                     $more = lvjm_get_embed_and_actors( array( 'video_id' => $v['id'] ) );
                     if ( ! empty( $more['performer_name'] ) && false !== stripos( $more['performer_name'], $performer ) ) {

@@ -423,56 +423,83 @@ class LVJM_Search_Videos {
 	 * @param array $raw_feed_item Single video payload from the API.
 	 * @return array
 	 */
-	private function extract_performer_candidates( $raw_feed_item ) {
-		$candidates = array();
+        private function extract_performer_candidates( $raw_feed_item ) {
+                if ( empty( $raw_feed_item ) || ! is_array( $raw_feed_item ) ) {
+                        return array();
+                }
 
-		$sources = array();
+                $names = array();
 
-		if ( isset( $raw_feed_item['performers'] ) ) {
-			$sources[] = $raw_feed_item['performers'];
-		}
+                if ( ! empty( $raw_feed_item['performers'] ) && is_array( $raw_feed_item['performers'] ) ) {
+                        $names = $this->sanitize_performer_source( $raw_feed_item['performers'] );
+                } elseif ( ! empty( $raw_feed_item['models'] ) && is_array( $raw_feed_item['models'] ) ) {
+                        $names = $this->sanitize_performer_source( $raw_feed_item['models'] );
+                }
 
-		if ( isset( $raw_feed_item['models'] ) ) {
-			$sources[] = $raw_feed_item['models'];
-		}
+                if ( empty( $names ) ) {
+                        return array();
+                }
 
-		foreach ( $sources as $source ) {
-			if ( is_array( $source ) && isset( $source['data'] ) && is_array( $source['data'] ) ) {
-				$source = $source['data'];
-			} elseif ( is_object( $source ) && isset( $source->data ) && is_array( $source->data ) ) {
-				$source = $source->data;
-			}
+                return array_values( array_unique( $names ) );
+        }
 
-			foreach ( (array) $source as $performer ) {
-				if ( is_array( $performer ) ) {
-					$keys = array( 'name', 'displayName', 'username', 'id' );
-					foreach ( $keys as $key ) {
-						if ( isset( $performer[ $key ] ) && '' !== (string) $performer[ $key ] ) {
-							$candidates[] = (string) $performer[ $key ];
-							break;
-						}
-					}
-				} elseif ( is_object( $performer ) ) {
-					$keys = array( 'name', 'displayName', 'username', 'id' );
-					foreach ( $keys as $key ) {
-						if ( isset( $performer->$key ) && '' !== (string) $performer->$key ) {
-							$candidates[] = (string) $performer->$key;
-							break;
-						}
-					}
-				} else {
-					$candidate = (string) $performer;
-					if ( '' !== $candidate ) {
-						$candidates[] = $candidate;
-					}
-				}
-			}
-		}
+        /**
+         * Normalize raw performer data into a flat list of names.
+         *
+         * @param array|Traversable $source Raw performer payload.
+         * @return array
+         */
+        private function sanitize_performer_source( $source ) {
+                $names = array();
 
-		$candidates = array_filter( array_map( 'trim', $candidates ) );
+                if ( isset( $source['data'] ) && is_array( $source['data'] ) ) {
+                        $source = $source['data'];
+                } elseif ( is_object( $source ) && isset( $source->data ) && is_array( $source->data ) ) {
+                        $source = $source->data;
+                } elseif ( $source instanceof \Traversable ) {
+                        $source = iterator_to_array( $source );
+                }
 
-		return array_values( array_unique( $candidates ) );
-	}
+                if ( empty( $source ) || ! is_array( $source ) ) {
+                        return $names;
+                }
+
+                foreach ( $source as $performer ) {
+                        $candidate = '';
+
+                        if ( is_array( $performer ) ) {
+                                $keys = array( 'name', 'displayName', 'username', 'id' );
+                                foreach ( $keys as $key ) {
+                                        if ( isset( $performer[ $key ] ) && '' !== (string) $performer[ $key ] ) {
+                                                $candidate = (string) $performer[ $key ];
+                                                break;
+                                        }
+                                }
+                        } elseif ( is_object( $performer ) ) {
+                                $keys = array( 'name', 'displayName', 'username', 'id' );
+                                foreach ( $keys as $key ) {
+                                        if ( isset( $performer->$key ) && '' !== (string) $performer->$key ) {
+                                                $candidate = (string) $performer->$key;
+                                                break;
+                                        }
+                                }
+                        } else {
+                                $candidate = (string) $performer;
+                        }
+
+                        $candidate = trim( $candidate );
+
+                        if ( '' !== $candidate ) {
+                                $names[] = $candidate;
+                        }
+                }
+
+                if ( empty( $names ) ) {
+                        return array();
+                }
+
+                return array_values( array_unique( $names ) );
+        }
 
 	/**
 	 * Find matching local performers for a given feed item.
