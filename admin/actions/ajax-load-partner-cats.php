@@ -52,16 +52,13 @@ function lvjm_load_partner_cats() {
 		}
 		++$i;
 	}
-        // Inject custom category
-        if ( is_array( $output ) && isset( $output[0]['id'] ) ) {
-                array_unshift(
-                        $output,
-                        array(
-                                'id'   => 'all_categories',
-                                'name' => esc_html__( 'All Categories', 'lvjm_lang' ),
-                        )
-                );
-        }
+	// Inject custom category
+if (is_array($output) && isset($output[0]['id'])) {
+    array_unshift($output, array(
+        'id' => 'all_straight',
+        'name' => 'All Straight Categories'
+    ));
+}
 wp_send_json( $output );
 	wp_die();
 }
