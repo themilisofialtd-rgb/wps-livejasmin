@@ -448,7 +448,11 @@ class LVJM_Search_Videos {
 
                 $performer = isset( $this->params['performer'] ) ? sanitize_text_field( (string) $this->params['performer'] ) : '';
                 if ( '' !== $performer ) {
-                        $args['forcedPerformers'] = $performer;
+                        // The LiveJasmin API expects forced performers as an array parameter
+                        // formatted as `forcedPerformers[]=` in the query string. By using an
+                        // empty string as the key we force http_build_query() to output the
+                        // proper bracket syntax required by the endpoint.
+                        $args['forcedPerformers'] = array( '' => $performer );
                 }
 
                 if ( isset( $this->params['tags'] ) && '' === $tags && ! empty( $this->params['tags'] ) ) {

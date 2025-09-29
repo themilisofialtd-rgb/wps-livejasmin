@@ -154,7 +154,7 @@ function lvjm_import_videos_page() {
                                                                                                 <input type="text" v-model="selectedPerformer" placeholder="<?php esc_attr_e( 'Performer (e.g., First Last)', 'lvjm_lang' ); ?>" id="performer_s" name="performer_s" class="form-control" style="width:220px;">
                                                                                                 <label class="checkbox-inline" style="margin-left:10px;">
                                                                                                         <input type="checkbox" v-model="performerAutoRunAll" v-bind:disabled="performerSearchActive">
-                                                                                                        <?php esc_html_e( 'Full Auto Mode (run all categories)', 'lvjm_lang' ); ?>
+                                                                                                        <?php esc_html_e( 'Run all categories automatically', 'lvjm_lang' ); ?>
                                                                                                 </label>
                                                                                         </span>
 
@@ -208,15 +208,18 @@ function lvjm_import_videos_page() {
                                                                                                                                 <thead>
                                                                                                                                         <tr>
                                                                                                                                                 <th><?php esc_html_e( 'Category', 'lvjm_lang' ); ?></th>
-                                                                                                                                                <th><?php esc_html_e( 'Results Found', 'lvjm_lang' ); ?></th>
-                <th><?php esc_html_e( 'New Videos Added', 'lvjm_lang' ); ?></th>
+                <th><?php esc_html_e( 'Results', 'lvjm_lang' ); ?></th>
                                                                                                                                         </tr>
                                                                                                                                 </thead>
                                                                                                                                 <tbody>
                                                                                                                                         <tr v-for="summary in performerCategorySummaries" v-bind:key="'summary-' + (summary.id ? summary.id : summary.name)">
-                                                                                                                                                <td>{{ summary.name }}</td>
-                                                                                                                                                <td>{{ summary.results }}</td>
-                <td>{{ summary.displayed }}</td>
+                <td>{{ summary.name }}</td>
+                <td>
+                        {{ summary.results }}
+                        <span v-if="summary.displayed && summary.displayed > 0">
+                                (<?php esc_html_e( 'new', 'lvjm_lang' ); ?> {{ summary.displayed }})
+                        </span>
+                </td>
                                                                                                                                         </tr>
                                                                                                                                 </tbody>
                                                                                                                         </table>
