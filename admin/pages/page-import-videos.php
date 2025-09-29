@@ -1,6 +1,8 @@
 <?php
 
-error_log('[WPS-LiveJasmin] Import videos page accessed');
+if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+        error_log( '[WPS-LiveJasmin] Import videos page accessed' );
+}
 /**
  * Admin Import Page plugin file.
  *
@@ -147,65 +149,31 @@ function lvjm_import_videos_page() {
 															<span id="kw-search" v-show="selectedPartnerObject.filters.search_by == 'keyword'">
 															<strong>- <?php esc_html_e( 'OR', 'lvjm_lang' ); ?> -</strong> <?php esc_html_e( 'Enter some keywords', 'lvjm_lang' ); ?> <input v-model="selectedKW" v-bind:disabled="searchingVideos" v-on:keyup.enter.prevent="searchVideos('create')" id="kw_s" type="text" placeholder="<?php esc_html_e( 'eg. ebony lesbian', 'lvjm_lang' ); ?>" name="kw_s" class="form-control" style="width:250px;">
 															</span>
-                                                                                        <span id="performer-search" style="margin-left:8px;">
-                                                                                                <label for="performer_s" class="sr-only"><?php esc_html_e( 'Performer', 'lvjm_lang' ); ?></label>
-                                                                                                <input type="text" v-model="selectedPerformer" placeholder="<?php esc_attr_e( 'Performer (optional)', 'lvjm_lang' ); ?>" id="performer_s" name="performer_s" class="form-control" style="width:220px;">
-                                                                                        </span>
-                                                                                        <span id="deep-search" style="margin-left:8px;">
-                                                                                                <label for="deep_search_name" class="sr-only"><?php esc_html_e( 'Deep Search name', 'lvjm_lang' ); ?></label>
-                                                                                                <input type="text" v-model="deepSearchName" v-bind:disabled="searchingVideos" v-on:keyup.enter.prevent="deepSearchVideos" id="deep_search_name" name="deep_search_name" class="form-control" style="width:220px;" placeholder="<?php esc_attr_e( 'Deep Search name', 'lvjm_lang' ); ?>">
-                                                                                        </span>
+											<span id="performer-search" style="margin-left:8px;">
+												<label for="performer_s" class="sr-only"><?php esc_html_e( 'Performer', 'lvjm_lang' ); ?></label>
+												<input type="text" v-model="selectedPerformer" placeholder="<?php esc_attr_e( 'Performer (optional)', 'lvjm_lang' ); ?>" id="performer_s" name="performer_s" class="form-control" style="width:220px;">
+											</span>
 
-                                                                                                                </div>
-                                                                                                        </div>
-                                                                                                </div>
-                                                                                                <div id="step-2" class="block-white sponsor-configured block-white-last" v-show="selectedPartnerObject.is_configured">
+														</div>
+													</div>
+												</div>
+												<div id="step-2" class="block-white sponsor-configured block-white-last" v-show="selectedPartnerObject.is_configured">
 													<span class="step">2</span>
-                                                                                                        <span v-show="videosHasBeenSearched">
-                                                                                                                <button class="btn btn-default" disabled><i class="fa fa-check" aria-hidden="true"></i> <?php esc_html_e( 'Search done!', 'lvjm_lang' ); ?></button>
-                                                                                                        </span>
-                                                                                                        <button v-show="!searchingVideos && !videosHasBeenSearched" v-on:click.prevent="searchVideos('create')" class="btn btn-info" v-bind:class="searchBtnClass" rel="tooltip" data-placement="top" v-bind:data-original-title="searchButtonTooltip"><i class="fa fa-search" aria-hidden="true"></i> <?php esc_html_e( 'Search videos', 'lvjm_lang' ); ?></button>
-                                                                                                        <button v-show="!searchingVideos" v-on:click.prevent="deepSearchVideos" class="btn btn-warning" v-bind:disabled="!deepSearchName || searchingVideos"><i class="fa fa-search-plus" aria-hidden="true"></i> <?php esc_html_e( 'Deep Search', 'lvjm_lang' ); ?></button>
-                                                                                                        <button v-show="searchingVideos" disabled="disabled" class="btn btn-info"><i class="fa fa-spinner fa-pulse" aria-hidden="true"></i> <?php esc_html_e( 'Searching videos...', 'lvjm_lang' ); ?></button>
-                                                                                                        <?php /* translators: %s: number of videos in the search results */ ?>
-                                                                                                        <small><i class="fa fa-info-circle" aria-hidden="true"></i> <?php printf( esc_html__( 'Each search displays up to %s unique videos at a time and excludes any videos already imported.', 'lvjm_lang' ), '{{data.videosLimit}}' ); ?></small>
-                                                                                                        <small><i class="fa fa-search-plus" aria-hidden="true"></i> <?php printf( esc_html__( 'Deep Search scans all straight categories for a name and returns up to %s matches, including duplicates.', 'lvjm_lang' ), '{{data.videosLimit}}' ); ?></small>
-                                                                                                </div>
-                                                                                        </div>
-                                                                                </div>
-                                                                        </div>
-                                                                        <!-- / search videos block -->
-                                                                        <div class="row" v-if="deepSearchActive && videosHasBeenSearched">
-                                                                                <div class="col-xs-12">
-                                                                                        <div class="alert alert-info margin-top-10" role="alert">
-                                                                                                <p class="margin-bottom-10"><strong><?php esc_html_e( 'Deep Search summary', 'lvjm_lang' ); ?></strong> <span v-if="deepSearchName">&mdash; {{deepSearchName}}</span></p>
-                                                                                                <div v-if="deepSearchSummary.length" class="table-responsive">
-                                                                                                        <table class="table table-condensed table-striped table-bordered">
-                                                                                                                <thead>
-                                                                                                                        <tr>
-                                                                                                                                <th><?php esc_html_e( 'Name', 'lvjm_lang' ); ?></th>
-                                                                                                                                <th><?php esc_html_e( 'Tag', 'lvjm_lang' ); ?></th>
-                                                                                                                                <th class="text-right"><?php esc_html_e( 'Videos found', 'lvjm_lang' ); ?></th>
-                                                                                                                        </tr>
-                                                                                                                </thead>
-                                                                                                                <tbody>
-                                                                                                                        <tr v-for="(row, index) in deepSearchSummary" v-bind:key="row.tag + '-' + index">
-                                                                                                                                <td>{{row.name}}</td>
-                                                                                                                                <td>{{row.tag}}</td>
-                                                                                                                                <td class="text-right">{{row.count}}</td>
-                                                                                                                        </tr>
-                                                                                                                </tbody>
-                                                                                                        </table>
-                                                                                                </div>
-                                                                                                <div v-else>
-                                                                                                        <em><?php esc_html_e( 'No videos matched the requested name in the straight catalog.', 'lvjm_lang' ); ?></em>
-                                                                                                </div>
-                                                                                        </div>
-                                                                                </div>
-                                                                        </div>
-                                                                        <!-- results success block -->
-                                                                        <div class="row">
-                                                                                <div class="col-xs-12" v-show="videosCounter <= 0 && videosHasBeenSearched">
+													<span v-show="videosHasBeenSearched">
+														<button class="btn btn-default" disabled><i class="fa fa-check" aria-hidden="true"></i> <?php esc_html_e( 'Search done!', 'lvjm_lang' ); ?></button>
+													</span>
+													<button v-show="!searchingVideos && !videosHasBeenSearched" v-on:click.prevent="searchVideos('create')" class="btn btn-info" v-bind:class="searchBtnClass" rel="tooltip" data-placement="top" v-bind:data-original-title="searchButtonTooltip"><i class="fa fa-search" aria-hidden="true"></i> <?php esc_html_e( 'Search videos', 'lvjm_lang' ); ?></button>
+													<button v-show="searchingVideos" disabled="disabled" class="btn btn-info"><i class="fa fa-spinner fa-pulse" aria-hidden="true"></i> <?php esc_html_e( 'Searching videos...', 'lvjm_lang' ); ?></button>
+													<?php /* translators: %s: number of videos in the search results */ ?>
+													<small><i class="fa fa-info-circle" aria-hidden="true"></i> <?php printf( esc_html__( 'Each search displays up to %s unique videos at a time and excludes any videos already imported.', 'lvjm_lang' ), '{{data.videosLimit}}' ); ?></small>
+												</div>
+											</div>
+										</div>
+									</div>
+									<!-- / search videos block -->
+									<!-- results success block -->
+									<div class="row">
+										<div class="col-xs-12" v-show="videosCounter <= 0 && videosHasBeenSearched">                                        
 											<div v-if="videosSearchedErrors.code" class="alert alert-danger margin-top-10 text-center alert-dismissible" role="alert">
 												<button type="button" class="close" v-on:click.prevent="resetSearch" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 												<p><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> <strong>{{videosSearchedErrors.code}}</strong><br>{{videosSearchedErrors.message}}<br>-<br>{{videosSearchedErrors.solution}}</p>

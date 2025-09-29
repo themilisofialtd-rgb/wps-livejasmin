@@ -15,16 +15,60 @@ defined( 'ABSPATH' ) || die( 'Cheatin&#8217; uh?' );
  * @return void|array $output New post ID if success, -1 if not. Returned only if this function is called in PHP.
  */
 function lvjm_import_video( $params = '' ) {
-	$ajax_call = '' === $params;
+        $ajax_call = '' === $params;
 
-	if ( $ajax_call ) {
-		check_ajax_referer( 'ajax-nonce', 'nonce' );
-		$params = $_POST;
-	}
+        if ( $ajax_call ) {
+                check_ajax_referer( 'ajax-nonce', 'nonce' );
+                $params = wp_unslash( $_POST );
+        }
 
-	if ( ! isset( $params['partner_id'], $params['video_infos'], $params['status'], $params['feed_id'], $params['cat_s'], $params['cat_wp'] ) ) {
-		wp_die( 'Some parameters are missing!' );
-	}
+        $params = is_array( $params ) ? $params : array();
+
+        $params['partner_id'] = isset( $params['partner_id'] ) ? sanitize_text_field( (string) $params['partner_id'] ) : '';
+        $params['status']     = isset( $params['status'] ) ? sanitize_text_field( (string) $params['status'] ) : '';
+        $params['feed_id']    = isset( $params['feed_id'] ) ? sanitize_text_field( (string) $params['feed_id'] ) : '';
+        $params['cat_s']      = isset( $params['cat_s'] ) ? sanitize_text_field( (string) $params['cat_s'] ) : '';
+        $params['cat_wp']     = isset( $params['cat_wp'] ) ? absint( $params['cat_wp'] ) : 0;
+        $params['method']     = isset( $params['method'] ) ? sanitize_text_field( (string) $params['method'] ) : '';
+        $params['kw']         = isset( $params['kw'] ) ? absint( $params['kw'] ) : 0;
+
+        $video_infos = isset( $params['video_infos'] ) && is_array( $params['video_infos'] ) ? $params['video_infos'] : array();
+
+        $thumbs_urls = array();
+        if ( isset( $video_infos['thumbs_urls'] ) ) {
+                $raw_thumbs = is_array( $video_infos['thumbs_urls'] ) ? $video_infos['thumbs_urls'] : explode( ',', (string) $video_infos['thumbs_urls'] );
+                foreach ( (array) $raw_thumbs as $thumb_url ) {
+                        $thumb_url = esc_url_raw( trim( (string) $thumb_url ) );
+                        if ( ! empty( $thumb_url ) ) {
+                                $thumbs_urls[] = $thumb_url;
+                        }
+                }
+        }
+
+        $video_infos_sanitized = array(
+                'id'            => isset( $video_infos['id'] ) ? sanitize_text_field( (string) $video_infos['id'] ) : '',
+                'title'         => isset( $video_infos['title'] ) ? sanitize_text_field( (string) $video_infos['title'] ) : 'Untitled',
+                'desc'          => isset( $video_infos['desc'] ) ? wp_kses_post( $video_infos['desc'] ) : '',
+                'embed'         => isset( $video_infos['embed'] ) ? wp_kses_post( $video_infos['embed'] ) : '',
+                'thumb_url'     => isset( $video_infos['thumb_url'] ) ? esc_url_raw( (string) $video_infos['thumb_url'] ) : '',
+                'thumbs_urls'   => $thumbs_urls,
+                'trailer_url'   => isset( $video_infos['trailer_url'] ) ? esc_url_raw( (string) $video_infos['trailer_url'] ) : '',
+                'video_url'     => isset( $video_infos['video_url'] ) ? esc_url_raw( (string) $video_infos['video_url'] ) : '',
+                'tracking_url'  => isset( $video_infos['tracking_url'] ) ? esc_url_raw( (string) $video_infos['tracking_url'] ) : '',
+                'duration'      => isset( $video_infos['duration'] ) ? sanitize_text_field( (string) $video_infos['duration'] ) : '',
+                'quality'       => isset( $video_infos['quality'] ) ? sanitize_text_field( (string) $video_infos['quality'] ) : '',
+                'isHd'          => isset( $video_infos['isHd'] ) ? sanitize_text_field( (string) $video_infos['isHd'] ) : '',
+                'uploader'      => isset( $video_infos['uploader'] ) ? sanitize_text_field( (string) $video_infos['uploader'] ) : '',
+                'actors'        => isset( $video_infos['actors'] ) ? sanitize_text_field( (string) $video_infos['actors'] ) : '',
+                'tags'          => isset( $video_infos['tags'] ) ? sanitize_text_field( (string) $video_infos['tags'] ) : '',
+                'partner_cat'   => isset( $video_infos['partner_cat'] ) ? sanitize_text_field( (string) $video_infos['partner_cat'] ) : '',
+        );
+
+        $params['video_infos'] = $video_infos_sanitized;
+
+        if ( '' === $params['partner_id'] || empty( $params['video_infos'] ) || '' === $params['status'] || '' === $params['feed_id'] || '' === $params['cat_s'] ) {
+                wp_die( 'Some parameters are missing!' );
+        }
 
 	// get custom post type.
 	$custom_post_type = xbox_get_field_value( 'lvjm-options', 'custom-video-post-type' );
@@ -56,8 +100,10 @@ function lvjm_import_video( $params = '' ) {
 		update_post_meta( $post_id, 'video_id', (string) $params['video_infos']['id'] );
 		// add main thumb.
 		update_post_meta( $post_id, 'thumb', (string) $params['video_infos']['thumb_url'] );
-		// add partner_cat.
-		update_post_meta( $post_id, 'partner_cat', (string) $params['cat_s'] );
+                // add partner_cat.
+                $partner_cat_source     = ! empty( $params['video_infos']['partner_cat'] ) ? $params['video_infos']['partner_cat'] : (string) $params['cat_s'];
+                $normalized_partner_cat = lvjm_normalize_category_slug( $partner_cat_source );
+                update_post_meta( $post_id, 'partner_cat', $normalized_partner_cat );
 		// add feed.
 		update_post_meta( $post_id, 'feed', (string) $params['feed_id'] );
 		// add video length.
@@ -97,23 +143,13 @@ function lvjm_import_video( $params = '' ) {
 		}
 		wp_set_object_terms( $post_id, explode( ',', str_replace( ';', ',', (string) $params['video_infos']['tags'] ) ), LVJM()->call_by_ref( $custom_tags ), false );
 		// add actors.
-		$custom_actors = xbox_get_field_value( 'lvjm-options', 'custom-video-actors' );
-                if ( '' === $custom_actors ) { $custom_actors = 'models'; }
-                if ( 'actors' === $custom_actors ) { $custom_actors = 'models'; }
-
-                if ( '' === $custom_actors ) {
-                        $custom_actors = 'actors';
+                $custom_actors = xbox_get_field_value( 'lvjm-options', 'custom-video-actors' );
+                if ( '' === $custom_actors || 'actors' === $custom_actors ) {
+                        $custom_actors = 'models';
                 }
-
-                $models_taxonomy     = LVJM()->call_by_ref( $custom_actors );
-                $assigned_model_terms = array();
-                if ( ! empty( $params['video_infos']['actors'] ) ) {
-                        $assigned_model_terms = wp_set_object_terms( $post_id, explode( ',', str_replace( ';', ',', (string) $params['video_infos']['actors'] ) ), $models_taxonomy, false );
-                }
-
-                if ( ! is_wp_error( $assigned_model_terms ) ) {
-                        lvjm_ensure_model_profiles_from_terms( (array) $assigned_model_terms, $models_taxonomy, $post_id );
-                }
+		if ( ! empty( $params['video_infos']['actors'] ) ) {
+			wp_set_object_terms( $post_id, explode( ',', str_replace( ';', ',', (string) $params['video_infos']['actors'] ) ), LVJM()->call_by_ref( $custom_actors ), false );
+		}
 		// add thumbs.
 		foreach ( (array) $params['video_infos']['thumbs_urls'] as $thumb ) {
 			if ( ! empty( $thumb ) ) {
@@ -176,215 +212,3 @@ function lvjm_import_video( $params = '' ) {
 	wp_die();
 }
 add_action( 'wp_ajax_lvjm_import_video', 'lvjm_import_video' );
-
-if ( ! function_exists( 'lvjm_get_model_placeholder_image_url' ) ) {
-        /**
-         * Retrieve the default placeholder image URL for auto-created model profiles.
-         *
-         * @return string
-         */
-        function lvjm_get_model_placeholder_image_url() {
-                $default = trailingslashit( LVJM_URL ) . 'admin/assets/img/loading-thumb.gif';
-
-                return apply_filters( 'lvjm_model_placeholder_image_url', $default );
-        }
-}
-
-if ( ! function_exists( 'lvjm_get_default_model_bio' ) ) {
-        /**
-         * Build the default bio for auto-created model profiles.
-         *
-         * @param string $name Model name.
-         * @return string
-         */
-        function lvjm_get_default_model_bio( $name ) {
-                $clean_name = wp_strip_all_tags( $name );
-                $bio        = sprintf( esc_html__( 'This profile was automatically created for %s from LiveJasmin imports. Update it with custom information and media.', 'lvjm_lang' ), $clean_name );
-
-                return apply_filters( 'lvjm_default_model_bio', $bio, $clean_name );
-        }
-}
-
-if ( ! function_exists( 'lvjm_attach_video_to_model_profile' ) ) {
-        /**
-         * Attach an imported video to a model profile.
-         *
-         * @param int $model_post_id Model post ID.
-         * @param int $video_post_id Video post ID.
-         * @return void
-         */
-        function lvjm_attach_video_to_model_profile( $model_post_id, $video_post_id ) {
-                $model_post_id = (int) $model_post_id;
-                $video_post_id = (int) $video_post_id;
-
-                if ( $model_post_id <= 0 || $video_post_id <= 0 ) {
-                        return false;
-                }
-
-                $existing = get_post_meta( $model_post_id, 'lvjm_related_videos', true );
-
-                if ( ! is_array( $existing ) ) {
-                        $existing = array();
-                }
-
-                if ( in_array( $video_post_id, $existing, true ) ) {
-                        return false;
-                }
-
-                $existing[] = $video_post_id;
-                update_post_meta( $model_post_id, 'lvjm_related_videos', $existing );
-
-                return true;
-        }
-}
-
-if ( ! function_exists( 'lvjm_find_or_create_model_post' ) ) {
-        /**
-         * Locate an existing model profile or create a new one on demand.
-         *
-         * @param string $name Model name.
-         * @return int Model post ID or 0 on failure.
-         */
-        function lvjm_find_or_create_model_post( $name, &$created = null ) {
-                $created = false;
-                $name    = trim( (string) $name );
-
-                if ( '' === $name ) {
-                        return 0;
-                }
-
-                if ( ! post_type_exists( 'model' ) ) {
-                        return 0;
-                }
-
-                $existing = get_page_by_title( $name, OBJECT, 'model' );
-                if ( $existing instanceof WP_Post ) {
-                        return (int) $existing->ID;
-                }
-
-                $query = new WP_Query(
-                        array(
-                                'post_type'      => 'model',
-                                'post_status'    => 'any',
-                                'name'           => sanitize_title( $name ),
-                                'posts_per_page' => 1,
-                                'fields'         => 'ids',
-                        )
-                );
-
-                if ( $query->have_posts() ) {
-                        $found = (int) $query->posts[0];
-                        wp_reset_postdata();
-                        return $found;
-                }
-
-                wp_reset_postdata();
-
-                $author_id = get_current_user_id();
-                if ( ! $author_id ) {
-                        $author_id = 1;
-                }
-
-                $post_id = wp_insert_post(
-                        array(
-                                'post_title'   => $name,
-                                'post_name'    => sanitize_title( $name ),
-                                'post_content' => lvjm_get_default_model_bio( $name ),
-                                'post_status'  => 'publish',
-                                'post_type'    => 'model',
-                                'post_author'  => $author_id,
-                        ),
-                        true
-                );
-
-                if ( is_wp_error( $post_id ) ) {
-                        return 0;
-                }
-
-                if ( ! get_post_meta( $post_id, 'lvjm_model_placeholder_image', true ) ) {
-                        update_post_meta( $post_id, 'lvjm_model_placeholder_image', lvjm_get_model_placeholder_image_url() );
-                }
-
-                $created = true;
-
-                return (int) $post_id;
-        }
-}
-
-if ( ! function_exists( 'lvjm_ensure_model_profiles_from_terms' ) ) {
-        /**
-         * Ensure CPT model profiles exist for the provided taxonomy terms.
-         *
-         * @param array  $term_ids        Term IDs assigned to the video.
-         * @param string $taxonomy        Taxonomy slug associated with the model terms.
-         * @param int    $video_post_id   Imported video post ID.
-         * @return void
-         */
-        function lvjm_ensure_model_profiles_from_terms( $term_ids, $taxonomy, $video_post_id ) {
-                if ( empty( $term_ids ) || ! post_type_exists( 'model' ) ) {
-                        return;
-                }
-
-                $taxonomy_exists = $taxonomy && taxonomy_exists( $taxonomy );
-
-                foreach ( (array) $term_ids as $term_id ) {
-                        $term = null;
-
-                        if ( $taxonomy_exists ) {
-                                $term = get_term( (int) $term_id, $taxonomy );
-
-                                if ( ! $term || is_wp_error( $term ) ) {
-                                        continue;
-                                }
-
-                                $name = $term->name;
-                        } else {
-                                $term = null;
-                                $name = ''; // Will fallback to taxonomy assignment.
-                        }
-
-                        if ( '' === $name ) {
-                                continue;
-                        }
-
-                        $model_post_id = lvjm_find_or_create_model_post( $name, $profile_created );
-
-                        if ( ! $model_post_id ) {
-                                continue;
-                        }
-
-                        if ( $taxonomy_exists ) {
-                                wp_set_post_terms( $model_post_id, array( (int) $term_id ), $taxonomy, true );
-                        }
-
-                        $attached = lvjm_attach_video_to_model_profile( $model_post_id, $video_post_id );
-
-                        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                                $category = get_post_meta( $video_post_id, 'partner_cat', true );
-                                $related  = get_post_meta( $model_post_id, 'lvjm_related_videos', true );
-
-                                if ( function_exists( 'sanitize_text_field' ) ) {
-                                        $name     = sanitize_text_field( $name );
-                                        $category = sanitize_text_field( (string) $category );
-                                }
-
-                                $count = is_array( $related ) ? count( $related ) : 0;
-                                $flag  = $profile_created ? 'yes' : 'no';
-
-                                error_log(
-                                        sprintf(
-                                                '[WPS-LiveJasmin] Name: %s | Category: %s | Videos found: %d | Profile created: %s',
-                                                '' !== $name ? $name : '-',
-                                                '' !== $category ? $category : '-',
-                                                (int) $count,
-                                                $flag
-                                        )
-                                );
-                        }
-
-                        if ( $attached ) {
-                                do_action( 'lvjm_model_profile_attached_video', $model_post_id, $video_post_id );
-                        }
-                }
-        }
-}

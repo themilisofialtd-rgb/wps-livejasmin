@@ -1,6 +1,8 @@
 <?php
 
-error_log('[WPS-LiveJasmin] Config loaded');
+if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+        error_log( '[WPS-LiveJasmin] Config loaded' );
+}
 /**
  * Config plugin file.
  *

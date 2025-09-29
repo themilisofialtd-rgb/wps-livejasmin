@@ -1,21 +1,22 @@
 <?php
 /**
  * Plugin Name: WPS LiveJasmin
- * Plugin URI: https://www.wp-script.com/plugins/livejasmin/
- * Description: Import LiveJasmin livecam embed videos in your WordPress posts
- * Author: WP-Script
- * Author URI: https://www.wp-script.com
- * Version: 1.3.2
+ * Plugin URI: https://top-models.webcam
+ * Description: Import LiveJasmin/AW Empire Tube videos with API-optimized search, performer sync, pagination, and debug tools.
+ * Version: 3.3V Adultwebmaster69
+ * Author: TMW
+ * Author URI: https://top-models.webcam
+ * License: GPL-2.0+
  * Text Domain: wps-livejasmin
  * Domain Path: /languages
- *
- * @package LVJM\Main
  */
 
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || die( 'Cheatin&#8217; uh?' );
 
-error_log('[WPS-LiveJasmin] Main plugin file loaded');
+if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+        error_log( '[WPS-LiveJasmin] Main plugin file loaded' );
+}
 
 if ( ! class_exists( 'LVJM' ) ) {
 	/**
@@ -686,13 +687,89 @@ add_action('admin_menu', function () {
 }, 999);
 
 add_action('admin_init', function(){
-	if (!is_admin()) return;
-	if (!current_user_can('manage_categories')) return;
-	$tax = isset($_GET['taxonomy']) ? sanitize_text_field(wp_unslash($_GET['taxonomy'])) : '';
-	if ($tax === 'actors') {
-		$pt  = isset($_GET['post_type']) ? sanitize_text_field(wp_unslash($_GET['post_type'])) : 'video';
-		$dst = add_query_arg(array('taxonomy'=>'models','post_type'=>$pt), admin_url('edit-tags.php'));
-		wp_safe_redirect($dst, 301);
-		exit;
-	}
+        if (!is_admin()) return;
+        if (!current_user_can('manage_categories')) return;
+        $tax = isset($_GET['taxonomy']) ? sanitize_text_field(wp_unslash($_GET['taxonomy'])) : '';
+        if ($tax === 'actors') {
+                $pt  = isset($_GET['post_type']) ? sanitize_text_field(wp_unslash($_GET['post_type'])) : 'video';
+                $dst = add_query_arg(array('taxonomy'=>'models','post_type'=>$pt), admin_url('edit-tags.php'));
+                wp_safe_redirect($dst, 301);
+                exit;
+        }
 });
+
+if ( ! function_exists( 'lvjm_recursive_sanitize_text_field' ) ) {
+        /**
+         * Recursively sanitize a value or array of values using sanitize_text_field.
+         *
+         * @param mixed $value Value to sanitize.
+         * @return mixed
+         */
+        function lvjm_recursive_sanitize_text_field( $value ) {
+                if ( is_array( $value ) ) {
+                        foreach ( $value as $key => $sub_value ) {
+                                $value[ $key ] = lvjm_recursive_sanitize_text_field( $sub_value );
+                        }
+                        return $value;
+                }
+
+                if ( is_object( $value ) ) {
+                        foreach ( $value as $property => $sub_value ) {
+                                $value->$property = lvjm_recursive_sanitize_text_field( $sub_value );
+                        }
+                        return $value;
+                }
+
+                if ( is_bool( $value ) ) {
+                        return (bool) $value;
+                }
+
+                if ( is_numeric( $value ) ) {
+                        return $value + 0;
+                }
+
+                return sanitize_text_field( (string) $value );
+        }
+}
+
+if ( ! function_exists( 'lvjm_normalize_category_slug' ) ) {
+        /**
+         * Normalize a partner category identifier to a slug compatible with the API/cache.
+         *
+         * @param string $category Category identifier from partner data.
+         * @return string
+         */
+        function lvjm_normalize_category_slug( $category ) {
+                $category = strtolower( trim( (string) $category ) );
+                // Replace separators and collapse whitespace.
+                $category = preg_replace( '/[\s_]+/', '-', $category );
+                $category = preg_replace( '/[^a-z0-9\-]/', '-', $category );
+                $category = preg_replace( '/-+/', '-', $category );
+                return trim( $category, '-' );
+        }
+}
+
+if ( ! function_exists( 'lvjm_get_straight_category_slugs' ) ) {
+        /**
+         * Retrieve normalized slugs for all straight partner categories.
+         *
+         * @return array
+         */
+        function lvjm_get_straight_category_slugs() {
+                $categories = array();
+                if ( function_exists( 'LVJM' ) ) {
+                        $raw_categories = LVJM()->get_partner_categories();
+                        if ( isset( $raw_categories['optgroup::Straight'] ) && is_array( $raw_categories['optgroup::Straight'] ) ) {
+                                foreach ( array_keys( $raw_categories['optgroup::Straight'] ) as $category_id ) {
+                                        $categories[ lvjm_normalize_category_slug( $category_id ) ] = $category_id;
+                                }
+                        }
+                }
+                return $categories;
+        }
+}
+
+if ( defined( 'WP_CLI' ) && WP_CLI ) {
+        require_once plugin_dir_path( __FILE__ ) . 'admin/class/class-lvjm-cli-commands.php';
+        WP_CLI::add_command( 'lvjm migrate-actors', array( 'LVJM_CLI_Commands', 'migrate_actors_to_models' ) );
+}
