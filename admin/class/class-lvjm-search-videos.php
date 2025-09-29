@@ -428,13 +428,20 @@ class LVJM_Search_Videos {
                         return array();
                 }
 
-                $names = array();
+                $names  = array();
+                $source = null;
 
-                if ( ! empty( $raw_feed_item['performers'] ) && is_array( $raw_feed_item['performers'] ) ) {
-                        $names = $this->sanitize_performer_source( $raw_feed_item['performers'] );
-                } elseif ( ! empty( $raw_feed_item['models'] ) && is_array( $raw_feed_item['models'] ) ) {
-                        $names = $this->sanitize_performer_source( $raw_feed_item['models'] );
+                if ( ! empty( $raw_feed_item['performers'] ) ) {
+                        $source = $raw_feed_item['performers'];
+                } elseif ( ! empty( $raw_feed_item['models'] ) ) {
+                        $source = $raw_feed_item['models'];
                 }
+
+                if ( null === $source ) {
+                        return array();
+                }
+
+                $names = $this->sanitize_performer_source( $source );
 
                 if ( empty( $names ) ) {
                         return array();
@@ -452,10 +459,18 @@ class LVJM_Search_Videos {
         private function sanitize_performer_source( $source ) {
                 $names = array();
 
-                if ( isset( $source['data'] ) && is_array( $source['data'] ) ) {
-                        $source = $source['data'];
-                } elseif ( is_object( $source ) && isset( $source->data ) && is_array( $source->data ) ) {
-                        $source = $source->data;
+                if ( is_array( $source ) ) {
+                        if ( isset( $source['data'] ) && is_array( $source['data'] ) ) {
+                                $source = $source['data'];
+                        }
+                } elseif ( is_object( $source ) ) {
+                        if ( isset( $source->data ) && is_array( $source->data ) ) {
+                                $source = $source->data;
+                        } elseif ( $source instanceof \Traversable ) {
+                                $source = iterator_to_array( $source );
+                        } else {
+                                $source = (array) $source;
+                        }
                 } elseif ( $source instanceof \Traversable ) {
                         $source = iterator_to_array( $source );
                 }
