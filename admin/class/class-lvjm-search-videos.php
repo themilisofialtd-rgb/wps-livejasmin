@@ -289,26 +289,40 @@ class LVJM_Search_Videos {
 	 * @return array
 	 */
 	private function prepare_query_args( array $query_args ) {
-		$psid       = isset( $query_args['psid'] ) ? (string) $query_args['psid'] : (string) get_option( 'wps_lj_psid' );
-		$access_key = isset( $query_args['accessKey'] ) ? (string) $query_args['accessKey'] : (string) get_option( 'wps_lj_accesskey' );
-		$tags       = isset( $this->params['cat_s'] ) ? (string) $this->params['cat_s'] : '';
+                $psid        = isset( $query_args['psid'] ) ? (string) $query_args['psid'] : (string) get_option( 'wps_lj_psid' );
+                $access_key  = isset( $query_args['accessKey'] ) ? (string) $query_args['accessKey'] : (string) get_option( 'wps_lj_accesskey' );
+                $tags        = isset( $this->params['cat_s'] ) ? (string) $this->params['cat_s'] : '';
+                $search_name = '';
 
-		if ( '' !== $tags && function_exists( 'sanitize_text_field' ) ) {
-			$tags = sanitize_text_field( $tags );
-		}
-		$limit      = isset( $query_args['limit'] ) ? (int) $query_args['limit'] : (int) $this->params['limit'];
+                if ( isset( $this->params['search_name'] ) ) {
+                        $search_name = (string) $this->params['search_name'];
+                } elseif ( isset( $this->params['performer'] ) ) {
+                        $search_name = (string) $this->params['performer'];
+                }
 
-		if ( $limit <= 0 || $limit > 60 ) {
+                if ( '' !== $tags && function_exists( 'sanitize_text_field' ) ) {
+                        $tags = sanitize_text_field( $tags );
+                }
+                if ( '' !== $search_name && function_exists( 'sanitize_text_field' ) ) {
+                        $search_name = sanitize_text_field( trim( $search_name ) );
+                }
+                $limit      = isset( $query_args['limit'] ) ? (int) $query_args['limit'] : (int) $this->params['limit'];
+
+                if ( $limit <= 0 || $limit > 60 ) {
 			$limit = 60;
 		}
 
-		$allowed_args = array(
-			'psid'              => $psid,
-			'accessKey'         => $access_key,
-			'sexualOrientation' => 'straight',
-			'tags'              => $tags,
-			'limit'             => $limit,
-		);
+                $allowed_args = array(
+                        'psid'              => $psid,
+                        'accessKey'         => $access_key,
+                        'sexualOrientation' => 'straight',
+                        'tags'              => $tags,
+                        'limit'             => $limit,
+                );
+
+                if ( '' !== $search_name ) {
+                        $allowed_args['performerName'] = $search_name;
+                }
 
 		if ( isset( $query_args['pageIndex'] ) ) {
 			$allowed_args['pageIndex'] = (int) $query_args['pageIndex'];
@@ -346,11 +360,11 @@ class LVJM_Search_Videos {
 	 * @param string $name Raw performer name.
 	 * @return string
 	 */
-	private function normalize_name( $name ) {
-		$name = (string) $name;
+        private function normalize_name( $name ) {
+                $name = trim( (string) $name );
 
-		return strtolower( preg_replace( '/[^a-z0-9]/', '', $name ) );
-	}
+                return strtolower( preg_replace( '/[^a-z0-9]/', '', $name ) );
+        }
 
 	/**
 	 * Retrieve the local performers indexed by their normalized name.
@@ -574,31 +588,39 @@ class LVJM_Search_Videos {
 			return;
 		}
 
-		$category  = isset( $this->params['cat_s'] ) ? (string) $this->params['cat_s'] : '';
-		$performer = isset( $this->params['performer'] ) ? (string) $this->params['performer'] : '';
+                $category = isset( $this->params['cat_s'] ) ? (string) $this->params['cat_s'] : '';
+                $name     = '';
 
-		if ( function_exists( 'sanitize_text_field' ) ) {
-			$category  = sanitize_text_field( $category );
-			$performer = sanitize_text_field( $performer );
-		}
+                if ( isset( $this->params['search_name'] ) ) {
+                        $name = (string) $this->params['search_name'];
+                }
 
-		if ( '' === $category ) {
-			$category = '-';
-		}
+                if ( '' === $name && isset( $this->params['performer'] ) ) {
+                        $name = (string) $this->params['performer'];
+                }
 
-		if ( '' === $performer ) {
-			$performer = '-';
-		}
+                if ( function_exists( 'sanitize_text_field' ) ) {
+                        $category = sanitize_text_field( $category );
+                        $name     = sanitize_text_field( $name );
+                }
 
-		$message = sprintf(
-			'[WPS-LiveJasmin] Category: %s | Performer: %s | Videos matched: %d',
-			$category,
-			$performer,
-			(int) $count
-		);
+                if ( '' === $category ) {
+                        $category = '-';
+                }
 
-		error_log( $message );
-	}
+                if ( '' === $name ) {
+                        $name = '-';
+                }
+
+                $message = sprintf(
+                        '[WPS-LiveJasmin] Name: %s | Category: %s | Videos found: %d | Profile created: no',
+                        $name,
+                        $category,
+                        (int) $count
+                );
+
+                error_log( $message );
+        }
 
 
 	/**

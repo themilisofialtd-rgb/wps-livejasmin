@@ -102,6 +102,31 @@ function lvjm_search_videos( $params = '' ) {
 
         return array_values( array_unique( $collected ) );
     };
+
+    $log_debug = static function ( $name, $category, $count, $profile_created = 'no' ) {
+        if ( ! defined( 'WP_DEBUG' ) || ! WP_DEBUG ) {
+            return;
+        }
+
+        $name     = (string) $name;
+        $category = (string) $category;
+        $profile_created = strtolower( (string) $profile_created ) === 'yes' ? 'yes' : 'no';
+
+        if ( function_exists( 'sanitize_text_field' ) ) {
+            $name     = sanitize_text_field( $name );
+            $category = sanitize_text_field( $category );
+        }
+
+        error_log(
+            sprintf(
+                '[WPS-LiveJasmin] Name: %s | Category: %s | Videos found: %d | Profile created: %s',
+                $name !== '' ? $name : '-',
+                $category !== '' ? $category : '-',
+                (int) $count,
+                $profile_created
+            )
+        );
+    };
     // Force brutal loop if All Straight Categories is chosen
     if ( isset($params['cat_s']) && $params['cat_s'] === 'all_straight' ) {
         $params['multi_category_search'] = '1';
@@ -110,12 +135,16 @@ function lvjm_search_videos( $params = '' ) {
     $videos = array();
 
     $is_multi_straight = isset($params['multi_category_search']) && $params['multi_category_search'] === '1';
-    $performer   = isset( $params['performer'] ) ? sanitize_text_field( (string) $params['performer'] ) : '';
+    $performer   = isset( $params['performer'] ) ? sanitize_text_field( trim( (string) $params['performer'] ) ) : '';
     $deep_search = isset( $params['deep_search'] ) && '1' === (string) $params['deep_search'];
     $search_name = '';
     if ( $deep_search ) {
-        $search_name = isset( $params['search_name'] ) ? sanitize_text_field( (string) $params['search_name'] ) : '';
+        $search_name = isset( $params['search_name'] ) ? sanitize_text_field( trim( (string) $params['search_name'] ) ) : '';
         $performer   = '';
+    }
+
+    if ( '' !== $performer && ! $deep_search ) {
+        $params['search_name'] = $performer;
     }
 
     if ( $deep_search ) {
@@ -226,7 +255,7 @@ function lvjm_search_videos( $params = '' ) {
                 }
 
                 $matched_count = count( $tag_matches );
-                error_log( sprintf( '[WPS-LiveJasmin] Search name: %s | Tag: %s | Videos matched: %d', $search_name, $cat_label, $matched_count ) );
+                $log_debug( $search_name, $cat_label, $matched_count, 'no' );
 
                 if ( $matched_count > 0 ) {
                     $deep_summary[] = array(
@@ -253,6 +282,7 @@ function lvjm_search_videos( $params = '' ) {
 
             if ( ! $search_videos->has_errors() ) {
                 $new_videos = $search_videos->get_videos();
+                $msg = '→ ' . $cat . ' (' . count($new_videos) . ' videos)';
                 foreach ($new_videos as $v) {
                     $vid = null;
                     if (is_array($v)) {
@@ -266,8 +296,7 @@ function lvjm_search_videos( $params = '' ) {
                     }
                 }
 
-                $msg = '→ ' . $cat . ' (' . count($new_videos) . ' videos)';
-                error_log('[WPS-LiveJasmin] Brutal search ' . $msg);
+                $log_debug( isset( $params['search_name'] ) ? $params['search_name'] : $performer, $cat, count( $new_videos ), 'no' );
                 if (!isset($GLOBALS['lvjm_debug'])) { $GLOBALS['lvjm_debug'] = array(); }
                 $GLOBALS['lvjm_debug'][] = $msg;
 
@@ -278,6 +307,7 @@ function lvjm_search_videos( $params = '' ) {
         if ( ! $search_videos->has_errors() ) {
             $videos = $search_videos->get_videos();
             $searched_data = $search_videos->get_searched_data();
+            $log_debug( isset( $params['search_name'] ) ? $params['search_name'] : $performer, isset( $params['cat_s'] ) ? $params['cat_s'] : '', count( (array) $videos ), 'no' );
         }
     }
 

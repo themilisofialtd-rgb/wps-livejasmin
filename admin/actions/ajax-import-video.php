@@ -218,7 +218,7 @@ if ( ! function_exists( 'lvjm_attach_video_to_model_profile' ) ) {
                 $video_post_id = (int) $video_post_id;
 
                 if ( $model_post_id <= 0 || $video_post_id <= 0 ) {
-                        return;
+                        return false;
                 }
 
                 $existing = get_post_meta( $model_post_id, 'lvjm_related_videos', true );
@@ -228,11 +228,13 @@ if ( ! function_exists( 'lvjm_attach_video_to_model_profile' ) ) {
                 }
 
                 if ( in_array( $video_post_id, $existing, true ) ) {
-                        return;
+                        return false;
                 }
 
                 $existing[] = $video_post_id;
                 update_post_meta( $model_post_id, 'lvjm_related_videos', $existing );
+
+                return true;
         }
 }
 
@@ -243,7 +245,14 @@ if ( ! function_exists( 'lvjm_find_or_create_model_post' ) ) {
          * @param string $name Model name.
          * @return int Model post ID or 0 on failure.
          */
-        function lvjm_find_or_create_model_post( $name ) {
+        function lvjm_find_or_create_model_post( $name, &$created = null ) {
+                $created = false;
+                $name    = trim( (string) $name );
+
+                if ( '' === $name ) {
+                        return 0;
+                }
+
                 if ( ! post_type_exists( 'model' ) ) {
                         return 0;
                 }
@@ -296,6 +305,8 @@ if ( ! function_exists( 'lvjm_find_or_create_model_post' ) ) {
                         update_post_meta( $post_id, 'lvjm_model_placeholder_image', lvjm_get_model_placeholder_image_url() );
                 }
 
+                $created = true;
+
                 return (int) $post_id;
         }
 }
@@ -336,7 +347,7 @@ if ( ! function_exists( 'lvjm_ensure_model_profiles_from_terms' ) ) {
                                 continue;
                         }
 
-                        $model_post_id = lvjm_find_or_create_model_post( $name );
+                        $model_post_id = lvjm_find_or_create_model_post( $name, $profile_created );
 
                         if ( ! $model_post_id ) {
                                 continue;
@@ -346,7 +357,34 @@ if ( ! function_exists( 'lvjm_ensure_model_profiles_from_terms' ) ) {
                                 wp_set_post_terms( $model_post_id, array( (int) $term_id ), $taxonomy, true );
                         }
 
-                        lvjm_attach_video_to_model_profile( $model_post_id, $video_post_id );
+                        $attached = lvjm_attach_video_to_model_profile( $model_post_id, $video_post_id );
+
+                        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                                $category = get_post_meta( $video_post_id, 'partner_cat', true );
+                                $related  = get_post_meta( $model_post_id, 'lvjm_related_videos', true );
+
+                                if ( function_exists( 'sanitize_text_field' ) ) {
+                                        $name     = sanitize_text_field( $name );
+                                        $category = sanitize_text_field( (string) $category );
+                                }
+
+                                $count = is_array( $related ) ? count( $related ) : 0;
+                                $flag  = $profile_created ? 'yes' : 'no';
+
+                                error_log(
+                                        sprintf(
+                                                '[WPS-LiveJasmin] Name: %s | Category: %s | Videos found: %d | Profile created: %s',
+                                                '' !== $name ? $name : '-',
+                                                '' !== $category ? $category : '-',
+                                                (int) $count,
+                                                $flag
+                                        )
+                                );
+                        }
+
+                        if ( $attached ) {
+                                do_action( 'lvjm_model_profile_attached_video', $model_post_id, $video_post_id );
+                        }
                 }
         }
 }
