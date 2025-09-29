@@ -172,7 +172,18 @@ function lvjm_import_videos_page() {
 									<!-- / search videos block -->
 									<!-- results success block -->
                                                                         <div class="row">
-                                                                                                                                                                                                                                                <div v-if="performerReports.length" class="col-xs-12 margin-top-10">
+
+                                                                                                                <div v-if="performerSearchMode" class="col-xs-12">
+												<div v-if="searchingVideos" class="alert alert-info">
+														<p><?php esc_html_e( 'Currently searching category', 'lvjm_lang' ); ?>: {{ searchProgress.currentCategory || '...' }} <?php esc_html_e( 'for', 'lvjm_lang' ); ?> {{ searchProgress.currentPerformer || selectedPerformer }}</p>
+														<p><?php esc_html_e( 'Videos found so far', 'lvjm_lang' ); ?>: {{ searchProgress.videosFound }}</p>
+												</div>
+												<div v-if="!searchingVideos && noPerformerVideos.length" class="alert alert-warning">
+														<p v-for="(name, index) in noPerformerVideos" v-bind:key="index"><?php esc_html_e( 'No promo videos available for', 'lvjm_lang' ); ?> {{ name || (data.objectL10n && data.objectL10n.no_performer_filter ? data.objectL10n.no_performer_filter : '<?php esc_html_e( 'No performer filter', 'lvjm_lang' ); ?>') }} <?php esc_html_e( 'in straight categories.', 'lvjm_lang' ); ?></p>
+												</div>
+                                                                                                                </div>
+
+<div v-if="performerReports.length" class="col-xs-12 margin-top-10">
                                                                                         <h4 class="margin-top-0"><?php esc_html_e( 'All Categories search summary', 'lvjm_lang' ); ?></h4>
                                                                                         <div class="panel panel-default" v-for="(report, index) in performerReports" v-bind:key="index" style="margin-bottom:15px;">
                                                                                                 <div class="panel-heading clearfix">

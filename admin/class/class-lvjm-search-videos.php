@@ -64,13 +64,34 @@ class LVJM_Search_Videos {
 	 */
 	private $videos;
 
-	/**
-	 * The searched_data.
-	 *
-	 * @var array $searched_data
-	 * @access private
-	 */
-	private $searched_data;
+        /**
+         * The searched_data.
+         *
+         * @var array $searched_data
+         * @access private
+         */
+        private $searched_data;
+
+        /**
+         * Performer filters provided by the user.
+         *
+         * @var array
+         */
+        private $performer_terms = array();
+
+        /**
+         * Normalized performer names for matching.
+         *
+         * @var array
+         */
+        private $normalized_performers = array();
+
+        /**
+         * Number of matches found per performer.
+         *
+         * @var array
+         */
+        private $performer_match_counts = array();
 
 	/**
 	 * The wp_version.
@@ -104,10 +125,15 @@ class LVJM_Search_Videos {
 	 * @param array $params The params needed to make the search.
 	 * @return void
 	 */
-	public function __construct( $params ) {
+        public function __construct( $params ) {
                 global $wp_version;
                 $this->wp_version = $wp_version;
                 $this->params     = $params;
+                if ( isset( $this->params['performer_list'] ) ) {
+                        $this->set_performer_terms( $this->params['performer_list'] );
+                } elseif ( isset( $this->params['performer'] ) && '' !== $this->params['performer'] ) {
+                        $this->set_performer_terms( array( $this->params['performer'] ) );
+                }
                 error_log( '[WPS-LiveJasmin] class-lvjm-search-videos.php constructor called' );
                 $cat_s_log = isset( $this->params['cat_s'] ) ? print_r( $this->params['cat_s'], true ) : '(unset)';
                 error_log( '[WPS-LiveJasmin] Search Param cat_s: ' . $cat_s_log );
@@ -165,12 +191,6 @@ class LVJM_Search_Videos {
             ],
             $this->feed_url
         );
-
-        // Append performer filter if provided
-        if ( isset($this->params['performer']) && !empty($this->params['performer']) ) {
-            $name = urlencode($this->params['performer']);
-            $this->feed_url .= '&forcedPerformers[]=' . $name;
-        }
 
 					if ( ! $this->feed_url ) {
 						WPSCORE()->write_log( 'error', 'Connection to Partner\'s API failed (feed url: <code>' . $this->feed_url . '</code> partner id: <code>:' . $this->params['partner']['id'] . '</code>)', __FILE__, __LINE__ );
@@ -255,50 +275,135 @@ class LVJM_Search_Videos {
 	 *
 	 * @return string The feed url with orientation.
 	 */
-	private function get_feed_url_with_orientation() {
-		$parsed_url = wp_parse_url( $this->feed_url );
-		parse_str( $parsed_url['query'], $old_query );
-		$new_query = array();
-		foreach ( $old_query as $key => $value ) {
-			if ( 'tags' !== $key ) {
-				$new_query[ $key ] = $value;
-				continue;
-			}
-			$new_query['tags']              = $value;
-			$new_query['sexualOrientation'] = 'straight';
-			if ( strpos( $value, 'gay' ) !== false ) {
-				$new_query[ $key ]              = trim( str_replace( 'gay', '', $value ) );
-				$new_query['sexualOrientation'] = 'gay';
-			}
-			if ( strpos( $value, 'shemale' ) !== false ) {
-				$new_query[ $key ]              = trim( str_replace( 'shemale', '', $value ) );
-				$new_query['sexualOrientation'] = 'shemale';
-			}
-		}
-		$parsed_url['query'] = http_build_query( $new_query );
-		$feed_url            = $this->unparse_url( $parsed_url );
-		return $feed_url;
-	}
+        private function get_feed_url_with_orientation() {
+                $parsed_url = wp_parse_url( $this->feed_url );
+                $query_args = array();
+                if ( isset( $parsed_url['query'] ) ) {
+                        parse_str( $parsed_url['query'], $query_args );
+                }
 
-	/**
-	 * Unparse a parsed url.
-	 *
-	 * @param array $parsed_url The parsed url.
-	 *
-	 * @return string The unparsed url.
-	 */
-	private function unparse_url( $parsed_url ) {
-		$scheme   = isset( $parsed_url['scheme'] ) ? $parsed_url['scheme'] . '://' : '';
-		$host     = isset( $parsed_url['host'] ) ? $parsed_url['host'] : '';
-		$port     = isset( $parsed_url['port'] ) ? ':' . $parsed_url['port'] : '';
-		$user     = isset( $parsed_url['user'] ) ? $parsed_url['user'] : '';
-		$pass     = isset( $parsed_url['pass'] ) ? ':' . $parsed_url['pass'] : '';
-		$pass     = ( $user || $pass ) ? "$pass@" : '';
-		$path     = isset( $parsed_url['path'] ) ? $parsed_url['path'] : '';
-		$query    = isset( $parsed_url['query'] ) ? '?' . $parsed_url['query'] : '';
-		$fragment = isset( $parsed_url['fragment'] ) ? '#' . $parsed_url['fragment'] : '';
-		return "$scheme$user$pass$host$port$path$query$fragment";
-	}
+                if ( isset( $this->params['cat_s'] ) && '' !== $this->params['cat_s'] ) {
+                        $query_args['tags'] = $this->params['cat_s'];
+                }
+
+                if ( isset( $query_args['tags'] ) ) {
+                        $safe_tags = str_ireplace( array( 'gay', 'shemale', 'trans' ), '', (string) $query_args['tags'] );
+                        $query_args['tags'] = trim( $safe_tags );
+                }
+
+                $query_args['sexualOrientation'] = 'straight';
+
+                $parsed_url['query'] = http_build_query( $query_args );
+                $feed_url            = $this->unparse_url( $parsed_url );
+                return $feed_url;
+        }
+
+        /**
+         * Unparse a parsed url.
+         *
+         * @param array $parsed_url The parsed url.
+         *
+         * @return string The unparsed url.
+         */
+        private function unparse_url( $parsed_url ) {
+                $scheme   = isset( $parsed_url['scheme'] ) ? $parsed_url['scheme'] . '://' : '';
+                $host     = isset( $parsed_url['host'] ) ? $parsed_url['host'] : '';
+                $port     = isset( $parsed_url['port'] ) ? ':' . $parsed_url['port'] : '';
+                $user     = isset( $parsed_url['user'] ) ? $parsed_url['user'] : '';
+                $pass     = isset( $parsed_url['pass'] ) ? ':' . $parsed_url['pass'] : '';
+                $pass     = ( $user || $pass ) ? "$pass@" : '';
+                $path     = isset( $parsed_url['path'] ) ? $parsed_url['path'] : '';
+                $query    = isset( $parsed_url['query'] ) ? '?' . $parsed_url['query'] : '';
+                $fragment = isset( $parsed_url['fragment'] ) ? '#' . $parsed_url['fragment'] : '';
+                return "$scheme$user$pass$host$port$path$query$fragment";
+        }
+
+        /**
+         * Normalise a performer name for comparisons.
+         *
+         * @param string $name Performer name.
+         * @return string
+         */
+        private function normalize_performer_name( $name ) {
+                $normalized = strtolower( preg_replace( '/[^a-z0-9]+/i', '', (string) $name ) );
+                return $normalized;
+        }
+
+        /**
+         * Store performer filters for the current search.
+         *
+         * @param array $terms Performer terms.
+         * @return void
+         */
+        private function set_performer_terms( $terms ) {
+                $terms                       = array_filter( array_map( 'trim', (array) $terms ) );
+                $this->performer_terms       = array_values( $terms );
+                $this->normalized_performers = array();
+                $this->performer_match_counts = array();
+                foreach ( $this->performer_terms as $term ) {
+                        $normalized = $this->normalize_performer_name( $term );
+                        if ( '' === $normalized ) {
+                                continue;
+                        }
+                        $this->normalized_performers[ $normalized ] = $term;
+                        if ( ! isset( $this->performer_match_counts[ $term ] ) ) {
+                                $this->performer_match_counts[ $term ] = 0;
+                        }
+                }
+        }
+
+        /**
+         * Extract performer names from a video payload.
+         *
+         * @param array|object $video Video payload.
+         * @return array
+         */
+        private function get_video_performer_names( $video ) {
+                $names = array();
+                if ( is_object( $video ) && isset( $video->performers ) ) {
+                        $names = (array) $video->performers;
+                } elseif ( is_array( $video ) && isset( $video['performers'] ) ) {
+                        $names = (array) $video['performers'];
+                } elseif ( is_array( $video ) && isset( $video['performerNames'] ) ) {
+                        $names = (array) $video['performerNames'];
+                }
+
+                $names = array_filter( array_map( 'strval', $names ) );
+                return $names;
+        }
+
+        /**
+         * Determine which performer terms match the provided video payload.
+         *
+         * @param array|object $video Video payload.
+         * @return array Array of matched performer display names.
+         */
+        private function find_matching_performers( $video ) {
+                if ( empty( $this->normalized_performers ) ) {
+                        return $this->performer_terms;
+                }
+
+                $matches   = array();
+                $videoList = $this->get_video_performer_names( $video );
+                foreach ( $videoList as $candidate ) {
+                        $normalized = $this->normalize_performer_name( $candidate );
+                        if ( isset( $this->normalized_performers[ $normalized ] ) ) {
+                                $display               = $this->normalized_performers[ $normalized ];
+                                $matches[ $display ] = $display;
+                        }
+                }
+
+                return array_values( $matches );
+        }
+
+        /**
+         * Retrieve performer match counts recorded during the search.
+         *
+         * @return array
+         */
+        public function get_performer_match_counts() {
+                return $this->performer_match_counts;
+        }
 
 	/**
 	 * Find videos from a json feed.
@@ -399,21 +504,37 @@ class LVJM_Search_Videos {
 				$current_item           = 0;
 				$page_end               = false;
 			}
-			while ( false === $page_end ) {
-				$feed_item = new LVJM_Json_Item( $array_feed[ $current_item ] );
-				$feed_item->init( $this->params, $this->feed_infos );
-				if ( $feed_item->is_valid() ) {
-					if ( ! in_array( $feed_item->get_id(), (array) $existing_ids['partner_all_videos_ids'], true ) ) {
-						$array_valid_videos[] = (array) $feed_item->get_data_for_json( $count_valid_feed_items );
-						$videos_details[]     = array(
-							'id'       => $feed_item->get_id(),
-							'response' => 'Success',
-						);
-						++$counters['valid_videos'];
-						++$count_valid_feed_items;
-					} elseif ( in_array( $feed_item->get_id(), (array) $existing_ids['partner_existing_videos_ids'], true ) ) {
-							$videos_details[] = array(
-								'id'       => $feed_item->get_id(),
+                        while ( false === $page_end ) {
+                                $raw_item  = $array_feed[ $current_item ];
+                                $matches   = $this->find_matching_performers( $raw_item );
+                                if ( ! empty( $this->normalized_performers ) && empty( $matches ) ) {
+                                        if ( $current_item >= ( $count_total_feed_items - 1 ) ) {
+                                                $page_end = true;
+                                                ++$current_page;
+                                        }
+                                        ++$current_item;
+                                        continue;
+                                }
+
+                                $feed_item = new LVJM_Json_Item( $raw_item );
+                                $feed_item->init( $this->params, $this->feed_infos );
+                                if ( $feed_item->is_valid() ) {
+                                        if ( ! in_array( $feed_item->get_id(), (array) $existing_ids['partner_all_videos_ids'], true ) ) {
+                                                $array_valid_videos[] = (array) $feed_item->get_data_for_json( $count_valid_feed_items );
+                                                $videos_details[]     = array(
+                                                        'id'       => $feed_item->get_id(),
+                                                        'response' => 'Success',
+                                                );
+                                                foreach ( (array) $matches as $matched_name ) {
+                                                        if ( isset( $this->performer_match_counts[ $matched_name ] ) ) {
+                                                                ++$this->performer_match_counts[ $matched_name ];
+                                                        }
+                                                }
+                                                ++$counters['valid_videos'];
+                                                ++$count_valid_feed_items;
+                                        } elseif ( in_array( $feed_item->get_id(), (array) $existing_ids['partner_existing_videos_ids'], true ) ) {
+                                                        $videos_details[] = array(
+                                                                'id'       => $feed_item->get_id(),
 								'response' => 'Already imported',
 							);
 							++$counters['existing_videos'];

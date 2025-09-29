@@ -1,6 +1,20 @@
 <?php
 defined( 'ABSPATH' ) || die( 'Cheatin&#8217; uh?' );
 
+if ( ! function_exists( 'lvjm_debug_log' ) ) {
+    /**
+     * Write debug information into WordPress' debug.log when enabled.
+     *
+     * @param string $message The message to persist.
+     */
+    function lvjm_debug_log( $message ) {
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+            $log_file = trailingslashit( WP_CONTENT_DIR ) . 'debug.log';
+            error_log( $message, 3, $log_file );
+        }
+    }
+}
+
 if ( ! function_exists( 'lvjm_parse_performer_input' ) ) {
     /**
      * Parse a raw performer input string into sanitized performer names.
@@ -246,7 +260,80 @@ function lvjm_search_videos( $params = '' ) {
         $performer_list[]  = $primary_performer;
     }
 
-    $params['performer'] = $primary_performer;
+    $params['performer']      = $primary_performer;
+    $params['performer_list'] = $performer_list;
+
+    $progressive_mode = isset( $params['progressive'] ) && '1' === (string) $params['progressive'] && ! empty( $performer_list );
+
+    if ( $progressive_mode ) {
+        $category_id   = isset( $params['category_id'] ) ? sanitize_text_field( (string) $params['category_id'] ) : '';
+        $category_name = isset( $params['category_name'] ) ? sanitize_text_field( (string) $params['category_name'] ) : $category_id;
+
+        if ( '' === $category_id ) {
+            $errors[] = array(
+                'code'    => 'missing_category',
+                'message' => esc_html__( 'No category provided for the performer search.', 'lvjm_lang' ),
+            );
+
+            $response = array(
+                'errors'   => $errors,
+                'videos'   => array(),
+                'category' => array(
+                    'id'   => $category_id,
+                    'name' => $category_name,
+                ),
+                'performer' => $primary_performer,
+                'matches'   => array(),
+            );
+
+            if ( $ajax_call ) {
+                wp_send_json( $response );
+                wp_die();
+            }
+
+            return $response;
+        }
+
+        $log_performer = isset( $params['log_performer'] ) ? sanitize_text_field( (string) $params['log_performer'] ) : $primary_performer;
+
+        $category_params                       = $params;
+        $category_params['cat_s']              = $category_id;
+        $category_params['category']           = $category_id;
+        $category_params['performer']          = $primary_performer;
+        $category_params['multi_category_search'] = '1';
+
+        $search_videos   = new LVJM_Search_Videos( $category_params );
+        $category_videos = array();
+        $matches         = array();
+
+        if ( $search_videos->has_errors() ) {
+            $errors = array_merge( $errors, (array) $search_videos->get_errors() );
+        } else {
+            $category_videos = (array) $search_videos->get_videos();
+            $matches         = method_exists( $search_videos, 'get_performer_match_counts' ) ? $search_videos->get_performer_match_counts() : array();
+        }
+
+        $log_name = '' !== $log_performer ? $log_performer : '(no performer)';
+        lvjm_debug_log( sprintf( '[WPS-LiveJasmin] Category checked: %s | Performer: %s | Videos found: %d', $category_name, $log_name, count( $category_videos ) ) );
+
+        $response = array(
+            'errors'   => $errors,
+            'videos'   => array_values( $category_videos ),
+            'category' => array(
+                'id'   => $category_id,
+                'name' => $category_name,
+            ),
+            'performer'    => $log_performer,
+            'matches'      => $matches,
+        );
+
+        if ( $ajax_call ) {
+            wp_send_json( $response );
+            wp_die();
+        }
+
+        return $response;
+    }
 
     if ( $is_multi_category ) {
         if ( empty( $performer_list ) ) {
@@ -321,6 +408,7 @@ function lvjm_search_videos( $params = '' ) {
                     }
 
                     error_log( sprintf( '[WPS-LiveJasmin] Category "%s" performer "%s" results: %d', $category['name'], $log_name, $category_count ) );
+                    lvjm_debug_log( sprintf( '[WPS-LiveJasmin] Category checked: %s | Performer: %s | Videos found: %d', $category['name'], $log_name, $category_count ) );
 
                     $category_reports[] = array(
                         'id'           => $category['id'],
