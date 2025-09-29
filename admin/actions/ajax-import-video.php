@@ -15,60 +15,16 @@ defined( 'ABSPATH' ) || die( 'Cheatin&#8217; uh?' );
  * @return void|array $output New post ID if success, -1 if not. Returned only if this function is called in PHP.
  */
 function lvjm_import_video( $params = '' ) {
-        $ajax_call = '' === $params;
+	$ajax_call = '' === $params;
 
-        if ( $ajax_call ) {
-                check_ajax_referer( 'ajax-nonce', 'nonce' );
-                $params = wp_unslash( $_POST );
-        }
+	if ( $ajax_call ) {
+		check_ajax_referer( 'ajax-nonce', 'nonce' );
+		$params = $_POST;
+	}
 
-        $params = is_array( $params ) ? $params : array();
-
-        $params['partner_id'] = isset( $params['partner_id'] ) ? sanitize_text_field( (string) $params['partner_id'] ) : '';
-        $params['status']     = isset( $params['status'] ) ? sanitize_text_field( (string) $params['status'] ) : '';
-        $params['feed_id']    = isset( $params['feed_id'] ) ? sanitize_text_field( (string) $params['feed_id'] ) : '';
-        $params['cat_s']      = isset( $params['cat_s'] ) ? sanitize_text_field( (string) $params['cat_s'] ) : '';
-        $params['cat_wp']     = isset( $params['cat_wp'] ) ? absint( $params['cat_wp'] ) : 0;
-        $params['method']     = isset( $params['method'] ) ? sanitize_text_field( (string) $params['method'] ) : '';
-        $params['kw']         = isset( $params['kw'] ) ? absint( $params['kw'] ) : 0;
-
-        $video_infos = isset( $params['video_infos'] ) && is_array( $params['video_infos'] ) ? $params['video_infos'] : array();
-
-        $thumbs_urls = array();
-        if ( isset( $video_infos['thumbs_urls'] ) ) {
-                $raw_thumbs = is_array( $video_infos['thumbs_urls'] ) ? $video_infos['thumbs_urls'] : explode( ',', (string) $video_infos['thumbs_urls'] );
-                foreach ( (array) $raw_thumbs as $thumb_url ) {
-                        $thumb_url = esc_url_raw( trim( (string) $thumb_url ) );
-                        if ( ! empty( $thumb_url ) ) {
-                                $thumbs_urls[] = $thumb_url;
-                        }
-                }
-        }
-
-        $video_infos_sanitized = array(
-                'id'            => isset( $video_infos['id'] ) ? sanitize_text_field( (string) $video_infos['id'] ) : '',
-                'title'         => isset( $video_infos['title'] ) ? sanitize_text_field( (string) $video_infos['title'] ) : 'Untitled',
-                'desc'          => isset( $video_infos['desc'] ) ? wp_kses_post( $video_infos['desc'] ) : '',
-                'embed'         => isset( $video_infos['embed'] ) ? wp_kses_post( $video_infos['embed'] ) : '',
-                'thumb_url'     => isset( $video_infos['thumb_url'] ) ? esc_url_raw( (string) $video_infos['thumb_url'] ) : '',
-                'thumbs_urls'   => $thumbs_urls,
-                'trailer_url'   => isset( $video_infos['trailer_url'] ) ? esc_url_raw( (string) $video_infos['trailer_url'] ) : '',
-                'video_url'     => isset( $video_infos['video_url'] ) ? esc_url_raw( (string) $video_infos['video_url'] ) : '',
-                'tracking_url'  => isset( $video_infos['tracking_url'] ) ? esc_url_raw( (string) $video_infos['tracking_url'] ) : '',
-                'duration'      => isset( $video_infos['duration'] ) ? sanitize_text_field( (string) $video_infos['duration'] ) : '',
-                'quality'       => isset( $video_infos['quality'] ) ? sanitize_text_field( (string) $video_infos['quality'] ) : '',
-                'isHd'          => isset( $video_infos['isHd'] ) ? sanitize_text_field( (string) $video_infos['isHd'] ) : '',
-                'uploader'      => isset( $video_infos['uploader'] ) ? sanitize_text_field( (string) $video_infos['uploader'] ) : '',
-                'actors'        => isset( $video_infos['actors'] ) ? sanitize_text_field( (string) $video_infos['actors'] ) : '',
-                'tags'          => isset( $video_infos['tags'] ) ? sanitize_text_field( (string) $video_infos['tags'] ) : '',
-                'partner_cat'   => isset( $video_infos['partner_cat'] ) ? sanitize_text_field( (string) $video_infos['partner_cat'] ) : '',
-        );
-
-        $params['video_infos'] = $video_infos_sanitized;
-
-        if ( '' === $params['partner_id'] || empty( $params['video_infos'] ) || '' === $params['status'] || '' === $params['feed_id'] || '' === $params['cat_s'] ) {
-                wp_die( 'Some parameters are missing!' );
-        }
+	if ( ! isset( $params['partner_id'], $params['video_infos'], $params['status'], $params['feed_id'], $params['cat_s'], $params['cat_wp'] ) ) {
+		wp_die( 'Some parameters are missing!' );
+	}
 
 	// get custom post type.
 	$custom_post_type = xbox_get_field_value( 'lvjm-options', 'custom-video-post-type' );
@@ -100,10 +56,8 @@ function lvjm_import_video( $params = '' ) {
 		update_post_meta( $post_id, 'video_id', (string) $params['video_infos']['id'] );
 		// add main thumb.
 		update_post_meta( $post_id, 'thumb', (string) $params['video_infos']['thumb_url'] );
-                // add partner_cat.
-                $partner_cat_source     = ! empty( $params['video_infos']['partner_cat'] ) ? $params['video_infos']['partner_cat'] : (string) $params['cat_s'];
-                $normalized_partner_cat = lvjm_normalize_category_slug( $partner_cat_source );
-                update_post_meta( $post_id, 'partner_cat', $normalized_partner_cat );
+		// add partner_cat.
+		update_post_meta( $post_id, 'partner_cat', (string) $params['cat_s'] );
 		// add feed.
 		update_post_meta( $post_id, 'feed', (string) $params['feed_id'] );
 		// add video length.
@@ -143,10 +97,13 @@ function lvjm_import_video( $params = '' ) {
 		}
 		wp_set_object_terms( $post_id, explode( ',', str_replace( ';', ',', (string) $params['video_infos']['tags'] ) ), LVJM()->call_by_ref( $custom_tags ), false );
 		// add actors.
-                $custom_actors = xbox_get_field_value( 'lvjm-options', 'custom-video-actors' );
-                if ( '' === $custom_actors || 'actors' === $custom_actors ) {
-                        $custom_actors = 'models';
-                }
+		$custom_actors = xbox_get_field_value( 'lvjm-options', 'custom-video-actors' );
+		if ( '' === $custom_actors ) { $custom_actors = 'models'; }
+		if ( 'actors' === $custom_actors ) { $custom_actors = 'models'; }
+
+		if ( '' === $custom_actors ) {
+			$custom_actors = 'actors';
+		}
 		if ( ! empty( $params['video_infos']['actors'] ) ) {
 			wp_set_object_terms( $post_id, explode( ',', str_replace( ';', ',', (string) $params['video_infos']['actors'] ) ), LVJM()->call_by_ref( $custom_actors ), false );
 		}

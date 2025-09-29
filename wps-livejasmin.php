@@ -1,22 +1,21 @@
 <?php
 /**
  * Plugin Name: WPS LiveJasmin
- * Plugin URI: https://top-models.webcam
- * Description: Import LiveJasmin/AW Empire Tube videos with API-optimized search, performer sync, pagination, and debug tools.
- * Version: 3.3V Adultwebmaster69
- * Author: TMW
- * Author URI: https://top-models.webcam
- * License: GPL-2.0+
+ * Plugin URI: https://www.wp-script.com/plugins/livejasmin/
+ * Description: Import LiveJasmin livecam embed videos in your WordPress posts
+ * Author: WP-Script
+ * Author URI: https://www.wp-script.com
+ * Version: 1.3.2
  * Text Domain: wps-livejasmin
  * Domain Path: /languages
+ *
+ * @package LVJM\Main
  */
 
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || die( 'Cheatin&#8217; uh?' );
 
-if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-        error_log( '[WPS-LiveJasmin] Main plugin file loaded' );
-}
+error_log('[WPS-LiveJasmin] Main plugin file loaded');
 
 if ( ! class_exists( 'LVJM' ) ) {
 	/**
@@ -411,28 +410,24 @@ public function get_whitelabel_id_from_url( $url ) {
 		private function order_categories( $categories ) {
 			$ordered_cats = array();
 			$i            = 0;
-                        foreach ( $categories as $cat_id => $cat_name ) {
-                                if ( strpos( $cat_id, 'optgroup' ) !== false ) {
-                                        $cat_id_explode         = explode( '::', $cat_id );
-                                        $orientation_label      = end( $cat_id_explode );
-                                        $orientation_identifier = strtolower( $orientation_label );
-                                        $ordered_cats[ $i ]     = array(
-                                                'id'          => 'optgroup',
-                                                'name'        => $orientation_label,
-                                                'orientation' => $orientation_identifier,
-                                        );
-                                        foreach ( (array) $cat_name as $sub_cat_id => $sub_cat_name ) {
-                                                $ordered_cats[ $i ]['sub_cats'][] = array(
-                                                        'id'          => $sub_cat_id,
-                                                        'name'        => $sub_cat_name,
-                                                        'orientation' => $orientation_identifier,
-                                                );
-                                        }
-                                } else {
-                                        $ordered_cats[ $i ] = array(
-                                                'id'   => $cat_id,
-                                                'name' => $cat_name,
-                                        );
+			foreach ( $categories as $cat_id => $cat_name ) {
+				if ( strpos( $cat_id, 'optgroup' ) !== false ) {
+					$cat_id_explode     = explode( '::', $cat_id );
+					$ordered_cats[ $i ] = array(
+						'id'   => 'optgroup',
+						'name' => end( $cat_id_explode ),
+					);
+					foreach ( (array) $cat_name as $sub_cat_id => $sub_cat_name ) {
+						$ordered_cats[ $i ]['sub_cats'][] = array(
+							'id'   => $sub_cat_id,
+							'name' => $sub_cat_name,
+						);
+					}
+				} else {
+					$ordered_cats[ $i ] = array(
+						'id'   => $cat_id,
+						'name' => $cat_name,
+					);
 				}
 				++$i;
 			}
@@ -691,191 +686,13 @@ add_action('admin_menu', function () {
 }, 999);
 
 add_action('admin_init', function(){
-        if (!is_admin()) return;
-        if (!current_user_can('manage_categories')) return;
-        $tax = isset($_GET['taxonomy']) ? sanitize_text_field(wp_unslash($_GET['taxonomy'])) : '';
-        if ($tax === 'actors') {
-                $pt  = isset($_GET['post_type']) ? sanitize_text_field(wp_unslash($_GET['post_type'])) : 'video';
-                $dst = add_query_arg(array('taxonomy'=>'models','post_type'=>$pt), admin_url('edit-tags.php'));
-                wp_safe_redirect($dst, 301);
-                exit;
-        }
+	if (!is_admin()) return;
+	if (!current_user_can('manage_categories')) return;
+	$tax = isset($_GET['taxonomy']) ? sanitize_text_field(wp_unslash($_GET['taxonomy'])) : '';
+	if ($tax === 'actors') {
+		$pt  = isset($_GET['post_type']) ? sanitize_text_field(wp_unslash($_GET['post_type'])) : 'video';
+		$dst = add_query_arg(array('taxonomy'=>'models','post_type'=>$pt), admin_url('edit-tags.php'));
+		wp_safe_redirect($dst, 301);
+		exit;
+	}
 });
-
-if ( ! function_exists( 'lvjm_recursive_sanitize_text_field' ) ) {
-        /**
-         * Recursively sanitize a value or array of values using sanitize_text_field.
-         *
-         * @param mixed $value Value to sanitize.
-         * @return mixed
-         */
-        function lvjm_recursive_sanitize_text_field( $value ) {
-                if ( is_array( $value ) ) {
-                        foreach ( $value as $key => $sub_value ) {
-                                $value[ $key ] = lvjm_recursive_sanitize_text_field( $sub_value );
-                        }
-                        return $value;
-                }
-
-                if ( is_object( $value ) ) {
-                        foreach ( $value as $property => $sub_value ) {
-                                $value->$property = lvjm_recursive_sanitize_text_field( $sub_value );
-                        }
-                        return $value;
-                }
-
-                if ( is_bool( $value ) ) {
-                        return (bool) $value;
-                }
-
-                if ( is_numeric( $value ) ) {
-                        return $value + 0;
-                }
-
-                return sanitize_text_field( (string) $value );
-        }
-}
-
-if ( ! function_exists( 'lvjm_get_client_ip_address' ) ) {
-        /**
-         * Resolve the most accurate client IP address available for the request.
-         *
-         * Checks common proxy headers before falling back to REMOTE_ADDR. When no
-         * valid IP can be determined, a safe localhost value is returned so API
-         * requests always receive a value.
-         *
-         * @return string
-         */
-        function lvjm_get_client_ip_address() {
-                $default     = '127.0.0.1';
-                $server_keys = array(
-                        'HTTP_CLIENT_IP',
-                        'HTTP_X_FORWARDED_FOR',
-                        'HTTP_X_FORWARDED',
-                        'HTTP_X_CLUSTER_CLIENT_IP',
-                        'HTTP_FORWARDED_FOR',
-                        'HTTP_FORWARDED',
-                        'REMOTE_ADDR',
-                );
-
-                foreach ( $server_keys as $key ) {
-                        if ( empty( $_SERVER[ $key ] ) ) {
-                                continue;
-                        }
-
-                        $raw_ips = explode( ',', (string) $_SERVER[ $key ] );
-                        foreach ( $raw_ips as $ip ) {
-                                $ip = trim( $ip );
-                                if ( '' === $ip ) {
-                                        continue;
-                                }
-
-                                $sanitized_ip = sanitize_text_field( $ip );
-                                if ( filter_var( $sanitized_ip, FILTER_VALIDATE_IP ) ) {
-                                        return $sanitized_ip;
-                                }
-                        }
-                }
-
-                return $default;
-        }
-}
-
-if ( ! function_exists( 'lvjm_normalize_performer_query' ) ) {
-        /**
-         * Convert a performer name into the camel-cased LiveJasmin identifier.
-         *
-         * @param string $performer Performer name entered by an editor or CLI task.
-         * @return string Normalized performer identifier.
-         */
-        function lvjm_normalize_performer_query( $performer ) {
-                $performer = (string) $performer;
-                $performer = preg_replace( '/[^\p{L}\p{N}\s]+/u', ' ', $performer );
-                $performer = trim( $performer );
-
-                if ( '' === $performer ) {
-                        return '';
-                }
-
-                $words       = preg_split( '/\s+/u', $performer );
-                $normalized  = array();
-
-                foreach ( (array) $words as $word ) {
-                        $word = trim( $word );
-                        if ( '' === $word ) {
-                                continue;
-                        }
-
-                        if ( function_exists( 'mb_substr' ) && function_exists( 'mb_strtoupper' ) ) {
-                                $first_char = mb_substr( $word, 0, 1, 'UTF-8' );
-                                $rest       = mb_substr( $word, 1, null, 'UTF-8' );
-
-                                if ( false === $first_char ) {
-                                        $first_char = '';
-                                }
-
-                                if ( false === $rest ) {
-                                        $rest = '';
-                                } else {
-                                        $rest = mb_strtolower( $rest, 'UTF-8' );
-                                }
-
-                                $normalized[] = mb_strtoupper( $first_char, 'UTF-8' ) . $rest;
-                        } else {
-                                $first_char   = substr( $word, 0, 1 );
-                                $rest         = substr( $word, 1 );
-                                if ( false === $rest ) {
-                                        $rest = '';
-                                } else {
-                                        $rest = strtolower( $rest );
-                                }
-
-                                $normalized[] = strtoupper( $first_char ) . $rest;
-                        }
-                }
-
-                return implode( '', $normalized );
-        }
-}
-
-if ( ! function_exists( 'lvjm_normalize_category_slug' ) ) {
-        /**
-         * Normalize a partner category identifier to a slug compatible with the API/cache.
-         *
-         * @param string $category Category identifier from partner data.
-         * @return string
-         */
-        function lvjm_normalize_category_slug( $category ) {
-                $category = strtolower( trim( (string) $category ) );
-                // Replace separators and collapse whitespace.
-                $category = preg_replace( '/[\s_]+/', '-', $category );
-                $category = preg_replace( '/[^a-z0-9\-]/', '-', $category );
-                $category = preg_replace( '/-+/', '-', $category );
-                return trim( $category, '-' );
-        }
-}
-
-if ( ! function_exists( 'lvjm_get_straight_category_slugs' ) ) {
-        /**
-         * Retrieve normalized slugs for all straight partner categories.
-         *
-         * @return array
-         */
-        function lvjm_get_straight_category_slugs() {
-                $categories = array();
-                if ( function_exists( 'LVJM' ) ) {
-                        $raw_categories = LVJM()->get_partner_categories();
-                        if ( isset( $raw_categories['optgroup::Straight'] ) && is_array( $raw_categories['optgroup::Straight'] ) ) {
-                                foreach ( array_keys( $raw_categories['optgroup::Straight'] ) as $category_id ) {
-                                        $categories[ lvjm_normalize_category_slug( $category_id ) ] = $category_id;
-                                }
-                        }
-                }
-                return $categories;
-        }
-}
-
-if ( defined( 'WP_CLI' ) && WP_CLI ) {
-        require_once plugin_dir_path( __FILE__ ) . 'admin/class/class-lvjm-cli-commands.php';
-        WP_CLI::add_command( 'lvjm migrate-actors', array( 'LVJM_CLI_Commands', 'migrate_actors_to_models' ) );
-}
