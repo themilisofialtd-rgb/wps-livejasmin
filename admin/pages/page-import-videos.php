@@ -154,7 +154,7 @@ function lvjm_import_videos_page() {
                                                                                                 <input type="text" v-model="selectedPerformer" placeholder="<?php esc_attr_e( 'Performer (e.g., First Last)', 'lvjm_lang' ); ?>" id="performer_s" name="performer_s" class="form-control" style="width:220px;">
                                                                                                 <label class="checkbox-inline" style="margin-left:10px;">
                                                                                                         <input type="checkbox" v-model="performerAutoRunAll" v-bind:disabled="performerSearchActive">
-                                                                                                        <?php esc_html_e( 'Auto-run all categories', 'lvjm_lang' ); ?>
+                                                                                                        <?php esc_html_e( 'Full Auto Mode (run all categories)', 'lvjm_lang' ); ?>
                                                                                                 </label>
                                                                                         </span>
 
@@ -168,7 +168,7 @@ function lvjm_import_videos_page() {
 													</span>
 													<button v-show="!searchingVideos && !videosHasBeenSearched" v-on:click.prevent="searchVideos('create')" class="btn btn-info" v-bind:class="searchBtnClass" rel="tooltip" data-placement="top" v-bind:data-original-title="searchButtonTooltip"><i class="fa fa-search" aria-hidden="true"></i> <?php esc_html_e( 'Search videos', 'lvjm_lang' ); ?></button>
                                                                                                         <button v-show="searchingVideos" disabled="disabled" class="btn btn-info"><i class="fa fa-spinner fa-pulse" aria-hidden="true"></i> <?php esc_html_e( 'Searching videos...', 'lvjm_lang' ); ?></button>
-                                                                                                       <button v-show="performerSearchActive && !performerAwaitingUserContinue" v-on:click.prevent="cancelPerformerSearch" class="btn btn-warning" style="margin-left:5px;"><i class="fa fa-stop-circle" aria-hidden="true"></i> <?php esc_html_e( 'Stop category search', 'lvjm_lang' ); ?></button>
+                                                                                                       <button v-show="performerSearchActive && !performerAwaitingUserContinue" v-on:click.prevent="cancelPerformerSearch" class="button button-secondary btn btn-warning" style="margin-left:5px;"><i class="fa fa-stop-circle" aria-hidden="true"></i> <?php esc_html_e( 'Stop category search', 'lvjm_lang' ); ?></button>
                                                                                                         <p class="text-info" v-if="performerSearchActive && currentSearchCategoryLabel">
                                                                                                                 <strong><?php esc_html_e( 'Currently searching category', 'lvjm_lang' ); ?></strong>:
                                                                                                                 {{ currentSearchCategoryLabel }}
@@ -192,28 +192,31 @@ function lvjm_import_videos_page() {
                                                                                                         <div v-if="performerCategorySummaries.length" class="margin-top-10">
                                                                                                                 <ul class="list-unstyled performer-category-log">
                                                                                                                         <li v-for="summary in performerCategorySummaries" v-bind:key="summary.id ? summary.id : summary.name">
-                                                                                                                                <strong><?php esc_html_e( 'Category', 'lvjm_lang' ); ?></strong> {{ summary.name }} &rarr; {{ summary.results }} <?php esc_html_e( 'results', 'lvjm_lang' ); ?>
+     <strong><?php esc_html_e( 'Category', 'lvjm_lang' ); ?></strong> {{ summary.name }} &rarr; {{ summary.results }} <?php esc_html_e( 'results', 'lvjm_lang' ); ?>
+             <span v-if="summary.displayed && summary.displayed > 0 && summary.displayed !== summary.results">(<?php esc_html_e( 'new', 'lvjm_lang' ); ?> {{ summary.displayed }})</span>
                                                                                                                         </li>
                                                                                                                 </ul>
                                                                                                         </div>
                                                                                                         <div v-if="performerSearchActive && performerAwaitingUserContinue" class="margin-top-10">
-                                                                                                                <button class="btn btn-success" v-on:click.prevent="continuePerformerCategorySearch"><span aria-hidden="true">✅</span> <?php esc_html_e( 'Continue Search in Next Category', 'lvjm_lang' ); ?></button>
-                                                                                                                <button class="btn btn-danger" style="margin-left:5px;" v-on:click.prevent="stopPerformerCategorySearch"><span aria-hidden="true">🛑</span> <?php esc_html_e( 'Stop Here', 'lvjm_lang' ); ?></button>
+                                                                                                                <button class="button button-primary btn btn-success" v-on:click.prevent="continuePerformerCategorySearch"><span aria-hidden="true">✅</span> <?php esc_html_e( 'Continue Search in Next Category', 'lvjm_lang' ); ?></button>
+                                                                                                                <button class="button button-secondary btn btn-danger" style="margin-left:5px;" v-on:click.prevent="stopPerformerCategorySearch"><span aria-hidden="true">🛑</span> <?php esc_html_e( 'Stop Here', 'lvjm_lang' ); ?></button>
                                                                                                         </div>
                                                                                                         <div v-if="performerSummaryComplete && performerCategorySummaries.length" class="margin-top-20">
                                                                                                                 <h4><?php esc_html_e( 'Performer Search Summary', 'lvjm_lang' ); ?></h4>
                                                                                                                 <div class="table-responsive">
-                                                                                                                        <table class="table table-bordered table-striped table-condensed">
+                                                                                                                        <table class="table table-bordered table-striped table-condensed widefat fixed striped">
                                                                                                                                 <thead>
                                                                                                                                         <tr>
                                                                                                                                                 <th><?php esc_html_e( 'Category', 'lvjm_lang' ); ?></th>
                                                                                                                                                 <th><?php esc_html_e( 'Results Found', 'lvjm_lang' ); ?></th>
+                <th><?php esc_html_e( 'New Videos Added', 'lvjm_lang' ); ?></th>
                                                                                                                                         </tr>
                                                                                                                                 </thead>
                                                                                                                                 <tbody>
                                                                                                                                         <tr v-for="summary in performerCategorySummaries" v-bind:key="'summary-' + (summary.id ? summary.id : summary.name)">
                                                                                                                                                 <td>{{ summary.name }}</td>
                                                                                                                                                 <td>{{ summary.results }}</td>
+                <td>{{ summary.displayed }}</td>
                                                                                                                                         </tr>
                                                                                                                                 </tbody>
                                                                                                                         </table>

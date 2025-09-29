@@ -49,7 +49,9 @@ function lvjm_get_embed_and_actors( $params = '' ) {
         $primary_color         = str_replace( '#', '', xbox_get_field_value( 'lvjm-options', 'primary-color' ) );
         $label_color           = str_replace( '#', '', xbox_get_field_value( 'lvjm-options', 'label-color' ) );
         $client_ip             = lvjm_get_client_ip_address();
-        error_log( '[WPS-LiveJasmin] Using client IP for embed details request: ' . $client_ip );
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                error_log( '[WPS-LiveJasmin] Using client IP for embed details request: ' . $client_ip );
+        }
         $api_url               = 'https://pt.ptawe.com/api/video-promotion/v1/details/' . $params['video_id'] . '?clientIp=' . $client_ip . '&primaryColor=' . $primary_color . '&labelColor=' . $label_color . '&psid=' . $psid . '&accessKey=' . $access_key;
         $args                  = array(
                 'timeout'   => 300,

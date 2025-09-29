@@ -48,22 +48,41 @@ function lvjm_search_videos( $params = '' ) {
                 'performer' => $performer,
             ) ) );
 
-            $new_videos = wp_cache_get( $cache_key, $cache_group );
-            if ( false === $new_videos ) {
+            $cache_payload       = wp_cache_get( $cache_key, $cache_group );
+            if ( false !== $cache_payload && ! isset( $cache_payload['videos'] ) && is_array( $cache_payload ) ) {
+                $cache_payload = array(
+                    'videos'        => (array) $cache_payload,
+                    'searched_data' => array(),
+                );
+            }
+            $loop_searched_data = array();
+
+            if ( false === $cache_payload ) {
                 $search_videos = new LVJM_Search_Videos( $loop_params );
                 if ( $search_videos->has_errors() ) {
                     $search_errors = (array) $search_videos->get_errors();
                     if ( isset( $search_errors['code'] ) || isset( $search_errors['message'] ) || isset( $search_errors['solution'] ) ) {
                         $search_errors = array( $search_errors );
                     }
-                    $errors     = array_merge( $errors, $search_errors );
-                    $new_videos = array();
-                    wp_cache_set( $cache_key, $new_videos, $cache_group, MINUTE_IN_SECONDS );
+                    $errors        = array_merge( $errors, $search_errors );
+                    $cache_payload = array(
+                        'videos'        => array(),
+                        'searched_data' => array(),
+                    );
+                    wp_cache_set( $cache_key, $cache_payload, $cache_group, MINUTE_IN_SECONDS );
                 } else {
-                    $new_videos = (array) $search_videos->get_videos();
-                    $searched_data = $search_videos->get_searched_data();
-                    wp_cache_set( $cache_key, $new_videos, $cache_group, HOUR_IN_SECONDS );
+                    $cache_payload = array(
+                        'videos'        => (array) $search_videos->get_videos(),
+                        'searched_data' => (array) $search_videos->get_searched_data(),
+                    );
+                    wp_cache_set( $cache_key, $cache_payload, $cache_group, HOUR_IN_SECONDS );
                 }
+            }
+
+            $new_videos         = isset( $cache_payload['videos'] ) ? (array) $cache_payload['videos'] : array();
+            $loop_searched_data = isset( $cache_payload['searched_data'] ) ? (array) $cache_payload['searched_data'] : array();
+            if ( ! empty( $loop_searched_data ) ) {
+                $searched_data = $loop_searched_data;
             }
 
             foreach ( (array) $new_videos as $video_item ) {
@@ -98,7 +117,12 @@ function lvjm_search_videos( $params = '' ) {
                 }
                 $log_category_name = ucwords( str_replace( array( '-', '_' ), ' ', (string) $log_category_name ) );
 
-                error_log( sprintf( '[WPS-LiveJasmin] Performer %s — Category %s → %d results', $log_performer_name, $log_category_name, count( (array) $new_videos ) ) );
+                $log_results_count = count( (array) $new_videos );
+                if ( isset( $loop_searched_data['pagination']['count'] ) ) {
+                    $log_results_count = (int) $loop_searched_data['pagination']['count'];
+                }
+
+                error_log( sprintf( '[WPS-LiveJasmin] Performer %s — Category %s → %d results', $log_performer_name, $log_category_name, $log_results_count ) );
             }
         }
     } else {
@@ -134,7 +158,12 @@ function lvjm_search_videos( $params = '' ) {
                 $log_category_name = 'All Categories';
             }
 
-            error_log( sprintf( '[WPS-LiveJasmin] Performer %s — Category %s → %d results', $log_performer_name, $log_category_name, count( (array) $videos ) ) );
+            $log_results_count = count( (array) $videos );
+            if ( isset( $searched_data['pagination']['count'] ) ) {
+                $log_results_count = (int) $searched_data['pagination']['count'];
+            }
+
+            error_log( sprintf( '[WPS-LiveJasmin] Performer %s — Category %s → %d results', $log_performer_name, $log_category_name, $log_results_count ) );
         }
     }
 
