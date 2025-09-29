@@ -70,12 +70,22 @@ function lvjm_search_videos( $params = '' ) {
             return strtolower( preg_replace( '/[^a-z0-9]/', '', $name ) );
         };
         $extract_performer_set = static function ( $video ) {
-            $names = array();
+            $source = null;
 
-            if ( ! empty( $video['performers'] ) && is_array( $video['performers'] ) ) {
-                $names = $video['performers'];
-            } elseif ( ! empty( $video['models'] ) && is_array( $video['models'] ) ) {
-                $names = $video['models'];
+            if ( ! empty( $video['performers'] ) ) {
+                $source = $video['performers'];
+            } elseif ( ! empty( $video['models'] ) ) {
+                $source = $video['models'];
+            } else {
+                return array();
+            }
+
+            if ( is_array( $source ) ) {
+                $names = $source;
+            } elseif ( $source instanceof \Traversable ) {
+                $names = iterator_to_array( $source );
+            } elseif ( is_object( $source ) ) {
+                $names = $source;
             } else {
                 return array();
             }
