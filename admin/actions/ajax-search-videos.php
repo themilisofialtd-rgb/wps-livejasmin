@@ -35,6 +35,15 @@ function lvjm_search_videos( $params = '' ) {
     if ( $is_multi ) {
         $straight_categories = lvjm_get_straight_category_slugs(); // slug => original id.
         $cache_group         = 'lvjm_search';
+        $category_summaries  = array();
+
+        $log_performer_name = '';
+        if ( '' !== $performer ) {
+            $log_performer_name = '' !== $performer_label ? $performer_label : $performer_raw;
+            if ( '' === $log_performer_name ) {
+                $log_performer_name = $performer;
+            }
+        }
 
         foreach ( $straight_categories as $normalized_slug => $category_id ) {
             $loop_params          = $params;
@@ -105,24 +114,49 @@ function lvjm_search_videos( $params = '' ) {
                 }
             }
 
-            if ( defined( 'WP_DEBUG' ) && WP_DEBUG && '' !== $performer ) {
-                $log_performer_name = '' !== $performer_label ? $performer_label : $performer_raw;
-                if ( '' === $log_performer_name ) {
-                    $log_performer_name = $performer;
+            $log_category_name = $category_id;
+            if ( '' === $log_category_name ) {
+                $log_category_name = $normalized_slug;
+            }
+            $log_category_name = ucwords( str_replace( array( '-', '_' ), ' ', (string) $log_category_name ) );
+
+            $log_results_count = count( (array) $new_videos );
+            if ( isset( $loop_searched_data['pagination']['totalCount'] ) ) {
+                $log_results_count = (int) $loop_searched_data['pagination']['totalCount'];
+            } elseif ( isset( $loop_searched_data['pagination']['count'] ) ) {
+                $log_results_count = (int) $loop_searched_data['pagination']['count'];
+            }
+
+            if ( '' !== $performer ) {
+                $category_summaries[] = array(
+                    'id'      => $category_id,
+                    'slug'    => $normalized_slug,
+                    'name'    => $log_category_name,
+                    'results' => $log_results_count,
+                );
+
+                if ( '' !== $log_performer_name && defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                    error_log( sprintf( '[WPS-LiveJasmin] Performer %s — Category %s → %d results', $log_performer_name, $log_category_name, $log_results_count ) );
+                }
+            }
+        }
+
+        if ( ! empty( $category_summaries ) ) {
+            $searched_data['category_summaries'] = $category_summaries;
+
+            if ( '' !== $log_performer_name && defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                $summary_lines = array();
+                foreach ( $category_summaries as $summary_entry ) {
+                    $summary_lines[] = sprintf(
+                        '%s → %d',
+                        isset( $summary_entry['name'] ) ? $summary_entry['name'] : ( isset( $summary_entry['slug'] ) ? $summary_entry['slug'] : 'Category' ),
+                        isset( $summary_entry['results'] ) ? (int) $summary_entry['results'] : 0
+                    );
                 }
 
-                $log_category_name = $category_id;
-                if ( '' === $log_category_name ) {
-                    $log_category_name = $normalized_slug;
+                if ( ! empty( $summary_lines ) ) {
+                    error_log( sprintf( '[WPS-LiveJasmin] Performer %s — Final Summary: %s', $log_performer_name, implode( ' | ', $summary_lines ) ) );
                 }
-                $log_category_name = ucwords( str_replace( array( '-', '_' ), ' ', (string) $log_category_name ) );
-
-                $log_results_count = count( (array) $new_videos );
-                if ( isset( $loop_searched_data['pagination']['count'] ) ) {
-                    $log_results_count = (int) $loop_searched_data['pagination']['count'];
-                }
-
-                error_log( sprintf( '[WPS-LiveJasmin] Performer %s — Category %s → %d results', $log_performer_name, $log_category_name, $log_results_count ) );
             }
         }
     } else {
