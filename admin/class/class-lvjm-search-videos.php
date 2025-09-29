@@ -290,7 +290,11 @@ class LVJM_Search_Videos {
 			return $feed_url;
 		}
 
-		$parsed_url = wp_parse_url( $feed_url );
+                $parsed_url = wp_parse_url( $feed_url );
+
+                if ( isset( $parsed_url['path'] ) ) {
+                        $parsed_url['path'] = $this->normalize_feed_path( $parsed_url['path'] );
+                }
 		$query_args = array();
 
 		if ( isset( $parsed_url['query'] ) ) {
@@ -300,16 +304,69 @@ class LVJM_Search_Videos {
                 $query_args          = $this->prepare_query_args( $query_args );
                 $parsed_url['query'] = http_build_query( $query_args, '', '&', PHP_QUERY_RFC3986 );
 
-		return $this->unparse_url( $parsed_url );
-	}
+                return $this->unparse_url( $parsed_url );
+        }
 
-	/**
-	 * Whitelist query arguments for LiveJasmin feed requests.
-	 *
-	 * @param array $query_args Original query arguments.
-	 * @return array
-	 */
-	private function prepare_query_args( array $query_args ) {
+        /**
+         * Normalize the LiveJasmin feed path to ensure client-side endpoints are used.
+         *
+         * @param string $path Raw path extracted from the feed URL.
+         * @return string
+         */
+        private function normalize_feed_path( $path ) {
+                $path = (string) $path;
+
+                if ( '' === $path ) {
+                        return $path;
+                }
+
+                $path = preg_replace( '#//+#', '/', $path );
+
+                if ( false !== strpos( $path, '/api/video-promotion/v1/' ) ) {
+                        $path = preg_replace( '#/api/video-promotion/v1/(client/)?list#', '/api/video-promotion/v1/client/list', $path, 1 );
+                }
+
+                return $path;
+        }
+
+        /**
+         * Determine the most appropriate client IP to forward to the LiveJasmin API.
+         *
+         * @return string
+         */
+        private function determine_client_ip() {
+                $server = isset( $_SERVER ) && is_array( $_SERVER ) ? $_SERVER : array();
+                $keys   = array( 'HTTP_X_FORWARDED_FOR', 'HTTP_CLIENT_IP', 'REMOTE_ADDR' );
+
+                foreach ( $keys as $key ) {
+                        if ( empty( $server[ $key ] ) ) {
+                                continue;
+                        }
+
+                        $candidate = (string) $server[ $key ];
+
+                        if ( 'HTTP_X_FORWARDED_FOR' === $key && false !== strpos( $candidate, ',' ) ) {
+                                $parts     = explode( ',', $candidate );
+                                $candidate = trim( reset( $parts ) );
+                        }
+
+                        $candidate = trim( $candidate );
+
+                        if ( filter_var( $candidate, FILTER_VALIDATE_IP ) ) {
+                                return $candidate;
+                        }
+                }
+
+                return '';
+        }
+
+        /**
+         * Whitelist query arguments for LiveJasmin feed requests.
+         *
+         * @param array $query_args Original query arguments.
+         * @return array
+         */
+        private function prepare_query_args( array $query_args ) {
                 $psid        = isset( $query_args['psid'] ) ? (string) $query_args['psid'] : (string) get_option( 'wps_lj_psid' );
                 $access_key  = isset( $query_args['accessKey'] ) ? (string) $query_args['accessKey'] : (string) get_option( 'wps_lj_accesskey' );
                 $tags        = isset( $this->params['cat_s'] ) ? (string) $this->params['cat_s'] : '';
@@ -330,8 +387,16 @@ class LVJM_Search_Videos {
                 $limit      = isset( $query_args['limit'] ) ? (int) $query_args['limit'] : (int) $this->params['limit'];
 
                 if ( $limit <= 0 || $limit > 60 ) {
-			$limit = 60;
-		}
+                        $limit = 60;
+                }
+
+                $client_ip = '';
+
+                if ( isset( $query_args['clientIp'] ) && '' !== trim( (string) $query_args['clientIp'] ) ) {
+                        $client_ip = trim( (string) $query_args['clientIp'] );
+                } else {
+                        $client_ip = $this->determine_client_ip();
+                }
 
                 $allowed_args = array(
                         'psid'              => $psid,
@@ -340,6 +405,10 @@ class LVJM_Search_Videos {
                         'tags'              => $tags,
                         'limit'             => $limit,
                 );
+
+                if ( '' !== $client_ip ) {
+                        $allowed_args['clientIp'] = $client_ip;
+                }
 
                 if ( '' !== $search_name ) {
                         $performer_args = $this->build_performer_query_parameters( $search_name );
@@ -404,8 +473,8 @@ class LVJM_Search_Videos {
                         $this->active_performer_filter_key   = 'performerId';
                         $this->active_performer_filter_value = $performer_id;
                 } else {
-                        $performer_args = array( 'forcedPerformers[]' => $search_name );
-                        $this->active_performer_filter_key   = 'forcedPerformers[]';
+                        $performer_args = array( 'performerName' => $search_name );
+                        $this->active_performer_filter_key   = 'performerName';
                         $this->active_performer_filter_value = $search_name;
                 }
 
@@ -419,8 +488,8 @@ class LVJM_Search_Videos {
                 $performer_args = apply_filters( 'lvjm_performer_query_arguments', $performer_args, $search_name, $this->params );
 
                 // Ensure unsupported parameters are removed.
-                if ( isset( $performer_args['performerName'] ) ) {
-                        unset( $performer_args['performerName'] );
+                if ( isset( $performer_args['forcedPerformers[]'] ) ) {
+                        unset( $performer_args['forcedPerformers[]'] );
                 }
 
                 foreach ( $performer_args as $key => $value ) {
@@ -432,8 +501,8 @@ class LVJM_Search_Videos {
                 if ( count( $performer_args ) > 1 ) {
                         if ( isset( $performer_args['performerId'] ) ) {
                                 $performer_args = array( 'performerId' => $performer_args['performerId'] );
-                        } elseif ( isset( $performer_args['forcedPerformers[]'] ) ) {
-                                $performer_args = array( 'forcedPerformers[]' => $performer_args['forcedPerformers[]'] );
+                        } elseif ( isset( $performer_args['performerName'] ) ) {
+                                $performer_args = array( 'performerName' => $performer_args['performerName'] );
                         }
                 }
 
@@ -460,13 +529,17 @@ class LVJM_Search_Videos {
                 $query_args = array();
 
                 if ( isset( $parsed_url['query'] ) ) {
-			parse_str( $parsed_url['query'], $query_args );
-		}
+                        parse_str( $parsed_url['query'], $query_args );
+                }
 
-		$query_args['pageIndex'] = (int) $page_index;
+                $query_args['pageIndex'] = (int) $page_index;
 
                 $query_args          = $this->prepare_query_args( $query_args );
                 $parsed_url['query'] = http_build_query( $query_args, '', '&', PHP_QUERY_RFC3986 );
+
+                if ( isset( $parsed_url['path'] ) ) {
+                        $parsed_url['path'] = $this->normalize_feed_path( $parsed_url['path'] );
+                }
 
                 return $this->unparse_url( $parsed_url );
         }
@@ -517,7 +590,7 @@ class LVJM_Search_Videos {
 
                 parse_str( $parsed['query'], $query_args );
 
-                $sensitive_keys = array( 'psid', 'accessKey', 'signature', 'license_key' );
+                $sensitive_keys = array( 'psid', 'accessKey', 'signature', 'license_key', 'clientIp' );
 
                 foreach ( $sensitive_keys as $key ) {
                         if ( isset( $query_args[ $key ] ) ) {
@@ -1035,16 +1108,23 @@ class LVJM_Search_Videos {
                 $local_performers_existing = ! empty( $this->get_local_performer_map() );
                 $require_performer_match   = '' !== $normalized_performer && $local_performers_existing;
 
-		$args = array(
-			'timeout'   => 300,
-			'sslverify' => false,
-		);
+                $args = array(
+                        'timeout'   => 300,
+                        'sslverify' => false,
+                );
 
-		$args['user-agent'] = 'WordPress/' . $this->wp_version . '; ' . home_url();
+                $args['user-agent'] = 'WordPress/' . $this->wp_version . '; ' . home_url();
 
-		if ( isset( $this->feed_infos->feed_auth ) ) {
-			$args['headers'] = array( 'Authorization' => $this->get_partner_feed_infos( $this->feed_infos->feed_auth->data ) );
-		}
+                if ( isset( $this->feed_infos->feed_auth ) ) {
+                        $args['headers'] = array( 'Authorization' => $this->get_partner_feed_infos( $this->feed_infos->feed_auth->data ) );
+                }
+
+                if ( ! isset( $args['headers'] ) || ! is_array( $args['headers'] ) ) {
+                        $args['headers'] = array();
+                }
+
+                $args['headers']['X-Requested-With'] = 'XMLHttpRequest';
+                $args['headers']['Accept']           = 'application/json';
 
 		$current_page = intval( $this->get_partner_feed_infos( $this->feed_infos->feed_first_page->data ) );
 
@@ -1096,6 +1176,32 @@ class LVJM_Search_Videos {
                                 return false;
                         }
 
+                        $api_status  = isset( $response_body['status'] ) ? (string) $response_body['status'] : 'UNKNOWN';
+                        $video_count = 0;
+
+                        if ( isset( $response_body['data'] ) && isset( $response_body['data']['videos'] ) && is_array( $response_body['data']['videos'] ) ) {
+                                $video_count = count( $response_body['data']['videos'] );
+                        }
+
+                        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                                $log_status = $api_status;
+                                $log_filter = $this->get_active_performer_filter_for_log();
+
+                                if ( function_exists( 'sanitize_text_field' ) ) {
+                                        $log_status = sanitize_text_field( $log_status );
+                                        $log_filter = sanitize_text_field( $log_filter );
+                                }
+
+                                error_log(
+                                        sprintf(
+                                                '[WPS-LiveJasmin] API response status: %s | Videos: %d | Performer filter: %s',
+                                                '' !== $log_status ? $log_status : '-',
+                                                (int) $video_count,
+                                                '' !== $log_filter ? $log_filter : '-'
+                                        )
+                                );
+                        }
+
                         if ( isset( $response_body['status'] ) && 'ERROR' === $response_body['status'] ) {
                                 $end              = true;
                                 $page_end         = true;
@@ -1103,6 +1209,29 @@ class LVJM_Search_Videos {
                                         'id'       => 'end',
                                         'response' => 'livejasmin API Error',
                                 );
+                                $error_message    = isset( $response_body['message'] ) ? (string) $response_body['message'] : 'Unknown LiveJasmin API error.';
+
+                                $this->errors = array(
+                                        'code'     => 'livejasmin_api_error',
+                                        'message'  => sprintf( 'LiveJasmin API returned an error: %s', $error_message ),
+                                        'solution' => __( 'Adjust the performer filter or try another category, then search again.', 'lvjm_lang' ),
+                                );
+
+                                if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                                        $log_error_message = $error_message;
+
+                                        if ( function_exists( 'sanitize_text_field' ) ) {
+                                                $log_error_message = sanitize_text_field( $log_error_message );
+                                        }
+
+                                        error_log(
+                                                sprintf(
+                                                        '[WPS-LiveJasmin] API error response: %s',
+                                                        '' !== $log_error_message ? $log_error_message : '-'
+                                                )
+                                        );
+                                }
+
                                 $this->log_search_result( 0 );
                                 return false;
                         }
@@ -1121,7 +1250,22 @@ class LVJM_Search_Videos {
                                         'id'       => 'end',
                                         'response' => 'No more videos',
                                 );
-			} else {
+
+                                if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                                        $log_filter = $this->get_active_performer_filter_for_log();
+
+                                        if ( function_exists( 'sanitize_text_field' ) ) {
+                                                $log_filter = sanitize_text_field( $log_filter );
+                                        }
+
+                                        error_log(
+                                                sprintf(
+                                                        '[WPS-LiveJasmin] LiveJasmin returned no videos for performer filter: %s',
+                                                        '' !== $log_filter ? $log_filter : '-'
+                                                )
+                                        );
+                                }
+                        } else {
 				// améliorer root selon paramètres / ou si null dans la config.
 				if ( isset( $this->feed_infos->feed_item_path->node ) ) {
 					$root       = $this->feed_infos->feed_item_path->node;
