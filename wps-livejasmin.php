@@ -572,7 +572,8 @@ public function get_whitelabel_id_from_url( $url ) {
 				'check_least'             => esc_html__( 'Check at least 1 video', 'lvjm_lang' ),
 				'enable_button'           => esc_html__( 'to enable this button', 'lvjm_lang' ),
 				'import'                  => esc_html__( 'Import', 'lvjm_lang' ),
-				'search_feed'             => esc_html__( 'videos and save this search as a Feed. All your Feeds are displayed at the bottom of this page.', 'lvjm_lang' ),
+                                'search_feed'             => esc_html__( 'videos and save this search as a Feed. All your Feeds are displayed at the bottom of this page.', 'lvjm_lang' ),
+                                'all_categories'          => esc_html__( 'All Categories', 'lvjm_lang' ),
 			);
 		}
 
