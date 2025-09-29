@@ -17,8 +17,21 @@ function lvjm_search_videos( $params = '' ) {
 
     $normalize_performer = static function ( $name ) {
         $name = (string) $name;
+        $name = trim( $name );
 
-        return strtolower( preg_replace( '/[^a-z0-9]/', '', $name ) );
+        if ( function_exists( 'remove_accents' ) ) {
+            $name = remove_accents( $name );
+        } elseif ( function_exists( 'iconv' ) ) {
+            $converted = @iconv( 'UTF-8', 'ASCII//TRANSLIT//IGNORE', $name );
+
+            if ( false !== $converted ) {
+                $name = $converted;
+            }
+        }
+
+        $name = strtolower( $name );
+
+        return preg_replace( '/[^a-z0-9]/', '', $name );
     };
 
     $extract_performer_set = static function ( $video ) {
@@ -103,29 +116,32 @@ function lvjm_search_videos( $params = '' ) {
         return array_values( array_unique( $collected ) );
     };
 
-    $log_debug = static function ( $name, $category, $count, $profile_created = 'no' ) {
+    $log_debug = static function ( $name, $category, $count, $profile_created = null ) {
         if ( ! defined( 'WP_DEBUG' ) || ! WP_DEBUG ) {
             return;
         }
 
         $name     = (string) $name;
         $category = (string) $category;
-        $profile_created = strtolower( (string) $profile_created ) === 'yes' ? 'yes' : 'no';
+        $profile_created = null === $profile_created ? null : ( strtolower( (string) $profile_created ) === 'yes' ? 'yes' : 'no' );
 
         if ( function_exists( 'sanitize_text_field' ) ) {
             $name     = sanitize_text_field( $name );
             $category = sanitize_text_field( $category );
         }
 
-        error_log(
-            sprintf(
-                '[WPS-LiveJasmin] Name: %s | Category: %s | Videos found: %d | Profile created: %s',
-                $name !== '' ? $name : '-',
-                $category !== '' ? $category : '-',
-                (int) $count,
-                $profile_created
-            )
+        $message = sprintf(
+            '[WPS-LiveJasmin] Name: %s | Category: %s | Videos found: %d',
+            $name !== '' ? $name : '-',
+            $category !== '' ? $category : '-',
+            (int) $count
         );
+
+        if ( null !== $profile_created ) {
+            $message .= sprintf( ' | Profile created: %s', $profile_created );
+        }
+
+        error_log( $message );
     };
     // Force brutal loop if All Straight Categories is chosen
     if ( isset($params['cat_s']) && $params['cat_s'] === 'all_straight' ) {
@@ -145,6 +161,29 @@ function lvjm_search_videos( $params = '' ) {
 
     if ( '' !== $performer && ! $deep_search ) {
         $params['search_name'] = $performer;
+    }
+
+    if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+        $log_performer  = '' !== $performer ? $performer : '-';
+        $log_search     = '' !== $search_name ? $search_name : ( isset( $params['search_name'] ) ? (string) $params['search_name'] : '-' );
+        $log_deep       = $deep_search ? 'yes' : 'no';
+        $log_categories = isset( $params['cat_s'] ) ? (string) $params['cat_s'] : '-';
+
+        if ( function_exists( 'sanitize_text_field' ) ) {
+            $log_performer  = sanitize_text_field( $log_performer );
+            $log_search     = sanitize_text_field( $log_search );
+            $log_categories = sanitize_text_field( $log_categories );
+        }
+
+        error_log(
+            sprintf(
+                '[WPS-LiveJasmin] AJAX payload performer: %s | search_name: %s | deep_search: %s | category: %s',
+                $log_performer,
+                $log_search,
+                $log_deep,
+                '' !== $log_categories ? $log_categories : '-'
+            )
+        );
     }
 
     if ( $deep_search ) {
@@ -196,13 +235,8 @@ function lvjm_search_videos( $params = '' ) {
             $base_params       = $params;
             unset( $base_params['performer'] );
             $base_params['include_existing'] = true;
-            $seen_video_ids    = array();
 
             foreach ( $straight_categories as $cat_id => $cat_label ) {
-                if ( count( $videos ) >= $limit ) {
-                    break;
-                }
-
                 $tag_params            = $base_params;
                 $tag_params['category'] = $cat_id;
                 $tag_params['cat_s']    = $cat_id;
@@ -219,6 +253,27 @@ function lvjm_search_videos( $params = '' ) {
                 foreach ( (array) $search_videos->get_videos() as $video ) {
                     $candidates = $extract_performer_set( $video );
 
+                    if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                        $video_id    = isset( $video['id'] ) ? (string) $video['id'] : '-';
+                        $names_debug = empty( $candidates ) ? '-' : implode( ', ', $candidates );
+                        $tag_debug   = $cat_label;
+
+                        if ( function_exists( 'sanitize_text_field' ) ) {
+                            $video_id    = sanitize_text_field( $video_id );
+                            $names_debug = sanitize_text_field( $names_debug );
+                            $tag_debug   = sanitize_text_field( $tag_debug );
+                        }
+
+                        error_log(
+                            sprintf(
+                                '[WPS-LiveJasmin] Deep Search candidates | Category: %s | Video: %s | Names: %s',
+                                '' !== $tag_debug ? $tag_debug : '-',
+                                '' !== $video_id ? $video_id : '-',
+                                '' !== $names_debug ? $names_debug : '-'
+                            )
+                        );
+                    }
+
                     if ( empty( $candidates ) ) {
                         continue;
                     }
@@ -226,6 +281,23 @@ function lvjm_search_videos( $params = '' ) {
                     $matched = false;
                     foreach ( $candidates as $candidate ) {
                         if ( $normalize_performer( $candidate ) === $normalized_target ) {
+                            if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                                $log_candidate = $candidate;
+                                $video_id      = isset( $video['id'] ) ? (string) $video['id'] : '-';
+
+                                if ( function_exists( 'sanitize_text_field' ) ) {
+                                    $log_candidate = sanitize_text_field( $log_candidate );
+                                    $video_id      = sanitize_text_field( $video_id );
+                                }
+
+                                error_log(
+                                    sprintf(
+                                        '[WPS-LiveJasmin] Deep Search match | Video: %s | Candidate: %s',
+                                        '' !== $video_id ? $video_id : '-',
+                                        '' !== $log_candidate ? $log_candidate : '-'
+                                    )
+                                );
+                            }
                             $matched = true;
                             break;
                         }
@@ -235,27 +307,17 @@ function lvjm_search_videos( $params = '' ) {
                         continue;
                     }
 
-                    $video_id = isset( $video['id'] ) ? (string) $video['id'] : '';
-
-                    if ( '' !== $video_id && isset( $seen_video_ids[ $video_id ] ) ) {
-                        continue;
-                    }
-
-                    if ( '' !== $video_id ) {
-                        $seen_video_ids[ $video_id ] = true;
-                    }
-
                     $video['source_tag'] = $cat_label;
-                    $videos[]            = $video;
                     $tag_matches[]       = $video;
 
-                    if ( count( $videos ) >= $limit ) {
-                        break;
+                    if ( count( $videos ) < $limit ) {
+                        $videos[] = $video;
                     }
+
                 }
 
                 $matched_count = count( $tag_matches );
-                $log_debug( $search_name, $cat_label, $matched_count, 'no' );
+                $log_debug( $search_name, $cat_label, $matched_count );
 
                 if ( $matched_count > 0 ) {
                     $deep_summary[] = array(

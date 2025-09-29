@@ -276,8 +276,8 @@ class LVJM_Search_Videos {
 			parse_str( $parsed_url['query'], $query_args );
 		}
 
-		$query_args          = $this->prepare_query_args( $query_args );
-		$parsed_url['query'] = http_build_query( $query_args );
+                $query_args          = $this->prepare_query_args( $query_args );
+                $parsed_url['query'] = http_build_query( $query_args, '', '&', PHP_QUERY_RFC3986 );
 
 		return $this->unparse_url( $parsed_url );
 	}
@@ -321,15 +321,71 @@ class LVJM_Search_Videos {
                 );
 
                 if ( '' !== $search_name ) {
-                        $allowed_args['performerName'] = $search_name;
+                        $performer_args = $this->build_performer_query_parameters( $search_name );
+
+                        if ( defined( 'WP_DEBUG' ) && WP_DEBUG && ! empty( $performer_args ) ) {
+                                $log_name = $search_name;
+                                $log_keys = implode( ', ', array_keys( $performer_args ) );
+
+                                if ( function_exists( 'sanitize_text_field' ) ) {
+                                        $log_name = sanitize_text_field( $log_name );
+                                        $log_keys = sanitize_text_field( $log_keys );
+                                }
+
+                                error_log(
+                                        sprintf(
+                                                '[WPS-LiveJasmin] Applying performer filter: %s | Parameters: %s',
+                                                '' !== $log_name ? $log_name : '-',
+                                                '' !== $log_keys ? $log_keys : '-'
+                                        )
+                                );
+                        }
+
+                        $allowed_args = array_merge( $allowed_args, $performer_args );
                 }
 
 		if ( isset( $query_args['pageIndex'] ) ) {
 			$allowed_args['pageIndex'] = (int) $query_args['pageIndex'];
 		}
 
-		return $allowed_args;
-	}
+                return $allowed_args;
+        }
+
+        /**
+         * Build the performer-specific query arguments for the API request.
+         *
+         * @param string $search_name Raw performer name filter.
+         * @return array
+         */
+        private function build_performer_query_parameters( $search_name ) {
+                $search_name = trim( (string) $search_name );
+
+                if ( '' === $search_name ) {
+                        return array();
+                }
+
+                $performer_args = array(
+                        'performerName'     => $search_name,
+                        'forcedPerformers[]' => $search_name,
+                );
+
+                /**
+                 * Filter the performer query arguments sent to the LiveJasmin API.
+                 *
+                 * @param array $performer_args The raw performer query arguments.
+                 * @param string $search_name  The performer name being searched.
+                 * @param array $params        Original request parameters.
+                 */
+                $performer_args = apply_filters( 'lvjm_performer_query_arguments', $performer_args, $search_name, $this->params );
+
+                foreach ( $performer_args as $key => $value ) {
+                        if ( '' === $value || null === $value ) {
+                                unset( $performer_args[ $key ] );
+                        }
+                }
+
+                return $performer_args;
+        }
 
 	/**
 	 * Build the paged URL for the given page index.
@@ -348,8 +404,8 @@ class LVJM_Search_Videos {
 
 		$query_args['pageIndex'] = (int) $page_index;
 
-		$query_args          = $this->prepare_query_args( $query_args );
-		$parsed_url['query'] = http_build_query( $query_args );
+                $query_args          = $this->prepare_query_args( $query_args );
+                $parsed_url['query'] = http_build_query( $query_args, '', '&', PHP_QUERY_RFC3986 );
 
 		return $this->unparse_url( $parsed_url );
 	}
@@ -363,7 +419,19 @@ class LVJM_Search_Videos {
         private function normalize_name( $name ) {
                 $name = trim( (string) $name );
 
-                return strtolower( preg_replace( '/[^a-z0-9]/', '', $name ) );
+                if ( function_exists( 'remove_accents' ) ) {
+                        $name = remove_accents( $name );
+                } elseif ( function_exists( 'iconv' ) ) {
+                        $converted = @iconv( 'UTF-8', 'ASCII//TRANSLIT//IGNORE', $name );
+
+                        if ( false !== $converted ) {
+                                $name = $converted;
+                        }
+                }
+
+                $name = strtolower( $name );
+
+                return preg_replace( '/[^a-z0-9]/', '', $name );
         }
 
 	/**
@@ -553,29 +621,78 @@ class LVJM_Search_Videos {
 			return array();
 		}
 
-		$matches    = array();
-		$candidates = $this->extract_performer_candidates( $raw_feed_item );
+                $matches    = array();
+                $candidates = $this->extract_performer_candidates( $raw_feed_item );
+                $video_id   = isset( $raw_feed_item['id'] ) ? (string) $raw_feed_item['id'] : '';
+                $sources    = array();
 
-		foreach ( $candidates as $candidate ) {
-			$normalized_candidate = $this->normalize_name( $candidate );
+                if ( ! empty( $raw_feed_item['performers'] ) ) {
+                        $sources[] = 'performers';
+                }
 
-			if ( '' === $normalized_candidate ) {
-				continue;
-			}
+                if ( ! empty( $raw_feed_item['models'] ) ) {
+                        $sources[] = 'models';
+                }
 
-			if ( ! isset( $local_performers[ $normalized_candidate ] ) ) {
-				continue;
-			}
+                if ( defined( 'WP_DEBUG' ) && WP_DEBUG && '' !== $normalized_filter ) {
+                        $log_sources    = empty( $sources ) ? array( 'none' ) : $sources;
+                        $log_candidates = empty( $candidates ) ? '-' : implode( ', ', $candidates );
+                        $video_label    = '' !== $video_id ? $video_id : '-';
 
-			if ( '' !== $normalized_filter && $normalized_candidate !== $normalized_filter ) {
-				continue;
-			}
+                        if ( function_exists( 'sanitize_text_field' ) ) {
+                                $video_label    = sanitize_text_field( $video_label );
+                                $log_candidates = sanitize_text_field( $log_candidates );
+                                $log_sources    = array_map( 'sanitize_text_field', $log_sources );
+                        }
 
-			$matches[ $normalized_candidate ] = $local_performers[ $normalized_candidate ];
-		}
+                        error_log(
+                                sprintf(
+                                        '[WPS-LiveJasmin] Video %s | Sources: %s | Candidates: %s',
+                                        $video_label,
+                                        implode( ', ', $log_sources ),
+                                        '' !== $log_candidates ? $log_candidates : '-'
+                                )
+                        );
+                }
 
-		return array_values( $matches );
-	}
+                foreach ( $candidates as $candidate ) {
+                        $normalized_candidate = $this->normalize_name( $candidate );
+
+                        if ( '' === $normalized_candidate ) {
+                                continue;
+                        }
+
+                        if ( ! isset( $local_performers[ $normalized_candidate ] ) ) {
+                                continue;
+                        }
+
+                        if ( '' !== $normalized_filter && $normalized_candidate !== $normalized_filter ) {
+                                continue;
+                        }
+
+                        if ( defined( 'WP_DEBUG' ) && WP_DEBUG && '' !== $normalized_filter && $normalized_candidate === $normalized_filter ) {
+                                $log_candidate = $candidate;
+                                $video_label   = '' !== $video_id ? $video_id : '-';
+
+                                if ( function_exists( 'sanitize_text_field' ) ) {
+                                        $log_candidate = sanitize_text_field( $log_candidate );
+                                        $video_label   = sanitize_text_field( $video_label );
+                                }
+
+                                error_log(
+                                        sprintf(
+                                                '[WPS-LiveJasmin] Video %s matched performer candidate: %s',
+                                                $video_label,
+                                                '' !== $log_candidate ? $log_candidate : '-'
+                                        )
+                                );
+                        }
+
+                        $matches[ $normalized_candidate ] = $local_performers[ $normalized_candidate ];
+                }
+
+                return array_values( $matches );
+        }
 
 	/**
 	 * Log the outcome of a search when WP_DEBUG is enabled.
@@ -695,15 +812,15 @@ class LVJM_Search_Videos {
 				error_log( '[WPS-LiveJasmin] Request URL: ' . $this->feed_url );
 			}
 
-			$response = wp_remote_get( $this->feed_url, $args );
+                        $response = wp_remote_get( $this->feed_url, $args );
 
-			if ( is_wp_error( $response ) ) {
-				WPSCORE()->write_log( 'error', 'Retrieving videos from JSON feed failed<code>ERROR: ' . wp_json_encode( $response->errors ) . '</code>', __FILE__, __LINE__ );
-				$this->log_search_result( 0 );
-				return false;
-			}
+                        if ( is_wp_error( $response ) ) {
+                                WPSCORE()->write_log( 'error', 'Retrieving videos from JSON feed failed<code>ERROR: ' . wp_json_encode( $response->errors ) . '</code>', __FILE__, __LINE__ );
+                                $this->log_search_result( 0 );
+                                return false;
+                        }
 
-			if ( 403 === wp_remote_retrieve_response_code( $response ) ) {
+                        if ( 403 === wp_remote_retrieve_response_code( $response ) ) {
 				WPSCORE()->write_log( 'error', 'Your AWEmpire PSID or Access Key is wrong. Please configure LiveJasmin.', __FILE__, __LINE__ );
 				$this->errors = array(
 					'code'     => 'AWEmpire credentials error',
@@ -714,7 +831,13 @@ class LVJM_Search_Videos {
 				return false;
 			}
 
-			$response_body = json_decode( wp_remote_retrieve_body( $response ), true );
+                        $raw_body = wp_remote_retrieve_body( $response );
+
+                        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                                error_log( '[WPS-LiveJasmin] Raw Response: ' . $raw_body );
+                        }
+
+                        $response_body = json_decode( $raw_body, true );
 
 			if ( $response_body['status'] && 'ERROR' === $response_body['status'] ) {
 				$end              = true;
