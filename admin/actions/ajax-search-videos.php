@@ -12,142 +12,94 @@ function lvjm_search_videos( $params = '' ) {
         $params = $_POST;
     }
 
-    $errors    = array();
-    $videos    = array();
-    $seen_ids  = array();
-    $last_data = array();
-
-    if ( isset( $params['cat_s'] ) && 'all_straight' === $params['cat_s'] ) {
+    $errors = array();
+    // Force brutal loop if All Straight Categories is chosen
+    if ( isset($params['cat_s']) && $params['cat_s'] === 'all_straight' ) {
         $params['multi_category_search'] = '1';
     }
 
-    $performer           = isset( $params['performer'] ) ? sanitize_text_field( (string) $params['performer'] ) : '';
-    $params['performer'] = $performer;
+    $videos = array();
 
-    $loop_straight = ( isset( $params['multi_category_search'] ) && '1' === (string) $params['multi_category_search'] ) || '' !== $performer;
+    $is_multi_straight = isset($params['multi_category_search']) && $params['multi_category_search'] === '1';
+    $performer = isset($params['performer']) ? sanitize_text_field((string)$params['performer']) : '';
 
-    $categories = array();
-    if ( $loop_straight ) {
-        $categories = lvjm_get_straight_search_categories();
-    } elseif ( isset( $params['cat_s'] ) && '' !== $params['cat_s'] && 'all_straight' !== $params['cat_s'] ) {
-        $categories = array( $params['cat_s'] );
-    }
+    if ( $is_multi_straight ) {
+        $straight_categories = ['69', 'Above Average', 'Amateur', 'Anal', 'Angry', 'Asian', 'Ass', 'Ass To mouth', 'Athletic', 'Auburn Hair', 'Babe', 'Bald', 'Ball Sucking', 'Bathroom', 'Bbc', 'BBW', 'Bdsm', 'Bed', 'Big Ass', 'Big Boobs', 'Big Booty', 'Big Breasts', 'Big Cock', 'Big Tists', 'Bizarre', 'Black Eyes', 'Black Girl', 'Black Hair', 'Blonde', 'Blond Hair', 'Blowjob', 'Blue Eyes', 'Blue Hair', 'Bondage', 'Boots', 'Booty', 'Bossy', 'Brown Eyes', 'Brown Hair', 'Brunette', 'Butt Plug', 'Cam Girl', 'Cam Porn', 'Cameltoe', 'Celebrity', 'Cfnm', 'Cheerleader', 'Clown Hair', 'Cock', 'College Girl', 'Cop', 'Cosplay', 'Cougar', 'Couple', 'Cowgirl', 'Creampie', 'Crew Cut', 'Cum', 'Cum On Tits', 'Cumshot', 'Curious', 'Cut', 'Cute', 'Dance', 'Deepthroat', 'Dilde', 'Dirty', 'Doctor', 'Doggy', 'Domination', 'Double Penetration', 'Ebony', 'Erotic', 'Eye Contact', 'Facesitting', 'Facial', 'Fake Tits', 'Fat Ass', 'Fetish', 'Fingering', 'Fire Red Hair', 'Fishnet', 'Fisting', 'Flirting', 'Foot Sex', 'Footjob', 'Fuck', 'Gag', 'Gaping', 'Gilf', 'Girl', 'Glamour', 'Glasses', 'Green Eyes', 'Grey Eyes', 'Group', 'Gym', 'Hairy', 'Handjob', 'Hard Cock', 'Hd', 'High Heels', 'Homemade', 'Homy', 'Hot', 'Hot Flirt', 'Housewife', 'Huge Cock', 'Huge Tits', 'Innocent', 'Interracial', 'Intim Piercing', 'Jeans', 'Kitchen', 'Ladyboy', 'Large Build', 'Latex', 'Latin', 'Latina', 'Leather', 'Lesbian', 'Lick', 'Lingerie', 'Live Sex', 'Long Hair', 'Long Nails', 'Machine', 'Maid', 'Massage', 'Masturbation', 'Mature', 'Milf', 'Missionary', 'Misstress', 'Moaning', 'Muscular', 'Muslim', 'Naked', 'Nasty', 'Natural Tits', 'Normal Cock', 'Normal Tits', 'Nurse', 'Nylon', 'Office', 'Oiled', 'Orange Hair', 'Orgasm', 'Orgy', 'Outdoor', 'Party', 'Pawg', 'Petite', 'Piercing', 'Pink Hair', 'Pissing', 'Pool', 'Pov', 'Pregnant', 'Princess', 'Public', 'punish', 'Pussy', 'Pvc', 'Quicky', 'Redhead', 'Remote Toy', 'Reverse Cowgirl', 'Riding', 'Rimjob', 'Roleplay', 'Romantic', 'Room', 'Rough', 'Schoolgirl', 'Scissoring', 'Scream', 'Secretary', 'Sensual', 'Sextoy', 'Sexy', 'Shaved', 'Short Girl', 'Short Hair', 'Shoulder Lenght Hair', 'Shy', 'Skinny', 'Slave', 'Sloppy', 'Slutty', 'Small Ass', 'Small Cock', 'Smoking', 'Solo', 'Sologirl', 'squirt', 'Stockings', 'Strap On', 'Stretching', 'Striptease', 'Stroking', 'Suck', 'Swallow', 'Tall', 'Tattoo', 'Teacher', 'Teasing', 'Teen', 'Treesome', 'Tight', 'Tiny Tits', 'Titjob', 'Toy', 'Trimmed', 'Uniform', 'Virgin', 'Watching', 'Wet', 'White', 'Lesbian'];
 
-    if ( empty( $categories ) && isset( $params['cat_s'] ) && '' !== $params['cat_s'] && 'all_straight' !== $params['cat_s'] ) {
-        $categories = array( $params['cat_s'] );
-    }
+        $seen_ids = array();
+        foreach ( $straight_categories as $cat ) {
+            $params['category'] = $cat;
+            $params['cat_s'] = $cat;
+            $search_videos = new LVJM_Search_Videos( $params );
 
-    $processed_category = false;
+            if ( ! $search_videos->has_errors() ) {
+                $new_videos = $search_videos->get_videos();
+                foreach ($new_videos as $v) {
+                    $vid = null;
+                    if (is_array($v)) {
+                        $vid = isset($v['id']) ? $v['id'] : null;
+                    } elseif (is_object($v)) {
+                        $vid = isset($v->id) ? $v->id : null;
+                    }
+                    if ($vid && !isset($seen_ids[$vid])) {
+                        $videos[] = $v;
+                        $seen_ids[$vid] = true;
+                    }
+                }
 
-    foreach ( (array) $categories as $category ) {
-        $category = trim( (string) $category );
-        if ( '' === $category || 'all_straight' === $category ) {
-            continue;
+                $msg = '→ ' . $cat . ' (' . count($new_videos) . ' videos)';
+                error_log('[WPS-LiveJasmin] Brutal search ' . $msg);
+                if (!isset($GLOBALS['lvjm_debug'])) { $GLOBALS['lvjm_debug'] = array(); }
+                $GLOBALS['lvjm_debug'][] = $msg;
+
+            }
         }
-
-        $params['cat_s']   = $category;
-        $params['category'] = $category;
-
+    } else {
         $search_videos = new LVJM_Search_Videos( $params );
-        $processed_category = true;
-
-        if ( $search_videos->has_errors() ) {
-            $errors = array_merge( $errors, (array) $search_videos->get_errors() );
-            if ( $loop_straight ) {
-                lvjm_log_search_category_result( $category, $performer, 0 );
-            }
-            continue;
-        }
-
-        $new_videos = $search_videos->get_videos();
-        $last_data  = $search_videos->get_searched_data();
-
-        foreach ( (array) $new_videos as $video ) {
-            $video_id = null;
-            if ( is_array( $video ) ) {
-                $video_id = isset( $video['id'] ) ? $video['id'] : null;
-            } elseif ( is_object( $video ) && isset( $video->id ) ) {
-                $video_id = $video->id;
-            }
-
-            if ( $video_id && ! isset( $seen_ids[ $video_id ] ) ) {
-                $videos[]              = $video;
-                $seen_ids[ $video_id ] = true;
-            }
-        }
-
-        if ( $loop_straight ) {
-            $match_count = method_exists( $search_videos, 'get_last_match_count' ) ? $search_videos->get_last_match_count() : count( (array) $new_videos );
-            lvjm_log_search_category_result( $category, $performer, $match_count );
+        if ( ! $search_videos->has_errors() ) {
+            $videos = $search_videos->get_videos();
         }
     }
 
-    if ( false === $processed_category ) {
-        $search_videos = new LVJM_Search_Videos( $params );
-
-        if ( $search_videos->has_errors() ) {
-            $errors = array_merge( $errors, (array) $search_videos->get_errors() );
-        } else {
-            $videos    = $search_videos->get_videos();
-            $last_data = $search_videos->get_searched_data();
+    // Performer filtering
+    if ( '' !== $performer ) {
+        $filtered = array();
+        if ( ! function_exists( 'lvjm_get_embed_and_actors' ) ) {
+            $actions_file = dirname( __FILE__ ) . '/ajax-get-embed-and-actors.php';
+            if ( file_exists( $actions_file ) ) {
+                require_once $actions_file;
+            }
         }
+        foreach ( (array) $videos as $v ) {
+            $match = false;
+            $actors = isset($v['actors']) ? (string)$v['actors'] : '';
+            if ( '' !== $actors && false !== stripos( $actors, $performer ) ) {
+                $match = true;
+            } elseif ( function_exists( 'lvjm_get_embed_and_actors' ) && isset( $v['id'] ) ) {
+                try {
+                    $more = lvjm_get_embed_and_actors( array( 'video_id' => $v['id'] ) );
+                    if ( ! empty( $more['performer_name'] ) && false !== stripos( $more['performer_name'], $performer ) ) {
+                        $match = true;
+                        $v['actors'] = $more['performer_name'];
+                    }
+                } catch ( \Throwable $e ) {}
+            }
+            if ( $match ) {
+                $filtered[] = $v;
+            }
+        }
+        $videos = $filtered;
     }
 
     if ( ! $ajax_call ) {
         return $videos;
     }
 
-    wp_send_json(
-        array(
-            'videos'        => $videos,
-            'errors'        => $errors,
-            'searched_data' => $last_data,
-        )
-    );
+    wp_send_json(array(
+        'videos'        => $videos,
+        'errors'        => $errors,
+    ));
 
     wp_die();
 }
-
-/**
- * Retrieve the list of straight categories used for performer searches.
- *
- * @return array
- */
-function lvjm_get_straight_search_categories() {
-    $categories   = array();
-    $ordered_cats = LVJM()->get_ordered_categories();
-
-    foreach ( (array) $ordered_cats as $entry ) {
-        if ( isset( $entry['id'], $entry['name'] ) && 'optgroup' === $entry['id'] && 'Straight' === $entry['name'] && isset( $entry['sub_cats'] ) ) {
-            foreach ( (array) $entry['sub_cats'] as $sub_cat ) {
-                if ( isset( $sub_cat['id'] ) ) {
-                    $id = trim( (string) $sub_cat['id'] );
-                    if ( '' !== $id ) {
-                        $categories[] = $id;
-                    }
-                }
-            }
-            break;
-        }
-    }
-
-    return array_values( array_unique( $categories ) );
-}
-
-/**
- * Log category performer matching results when debugging is enabled.
- *
- * @param string $category  Category identifier.
- * @param string $performer Performer name.
- * @param int    $count     Number of matched videos.
- *
- * @return void
- */
-function lvjm_log_search_category_result( $category, $performer, $count ) {
-    if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-        $name = '' !== trim( $performer ) ? $performer : 'N/A';
-        error_log( sprintf( '[WPS-LiveJasmin] Category: %s | Performer: %s | Videos matched: %d', $category, $name, intval( $count ) ) );
-    }
-}
-
 add_action( 'wp_ajax_lvjm_search_videos', 'lvjm_search_videos' );
