@@ -143,6 +143,13 @@ function lvjm_search_videos( $params = '' ) {
 
         error_log( $message );
     };
+
+    if ( ! function_exists( 'lvjm_find_or_create_model_post' ) ) {
+        $import_actions = dirname( __FILE__ ) . '/ajax-import-video.php';
+        if ( file_exists( $import_actions ) ) {
+            require_once $import_actions;
+        }
+    }
     // Force brutal loop if All Straight Categories is chosen
     if ( isset($params['cat_s']) && $params['cat_s'] === 'all_straight' ) {
         $params['multi_category_search'] = '1';
@@ -236,6 +243,20 @@ function lvjm_search_videos( $params = '' ) {
             unset( $base_params['performer'] );
             $base_params['include_existing'] = true;
 
+            $profile_created_flag_for_log = null;
+            $model_post_id                = 0;
+            $model_profile_created        = false;
+
+            if ( function_exists( 'lvjm_find_or_create_model_post' ) && '' !== $search_name ) {
+                $profile_created_candidate = null;
+                $model_post_id             = lvjm_find_or_create_model_post( $search_name, $profile_created_candidate );
+
+                if ( $model_post_id ) {
+                    $model_profile_created        = ( true === $profile_created_candidate );
+                    $profile_created_flag_for_log = $profile_created_candidate ? 'yes' : 'no';
+                }
+            }
+
             foreach ( $straight_categories as $cat_id => $cat_label ) {
                 $tag_params            = $base_params;
                 $tag_params['category'] = $cat_id;
@@ -247,6 +268,12 @@ function lvjm_search_videos( $params = '' ) {
 
                 if ( $search_videos->has_errors() ) {
                     continue;
+                }
+
+                $search_data = (array) $search_videos->get_searched_data();
+
+                if ( empty( $base_params['performer_id'] ) && isset( $search_data['performer_id'] ) && '' !== (string) $search_data['performer_id'] ) {
+                    $base_params['performer_id'] = (string) $search_data['performer_id'];
                 }
 
                 $tag_matches = array();
@@ -317,21 +344,39 @@ function lvjm_search_videos( $params = '' ) {
                 }
 
                 $matched_count = count( $tag_matches );
-                $log_debug( $search_name, $cat_label, $matched_count );
+                $log_debug( $search_name, $cat_label, $matched_count, $profile_created_flag_for_log );
+                $profile_created_flag_for_log = null;
 
                 if ( $matched_count > 0 ) {
-                    $deep_summary[] = array(
+                    $summary_row = array(
                         'name'  => $search_name,
                         'tag'   => $cat_label,
                         'count' => $matched_count,
                     );
+
+                    if ( isset( $base_params['performer_id'] ) && '' !== (string) $base_params['performer_id'] ) {
+                        $summary_row['performer_id'] = (string) $base_params['performer_id'];
+                    }
+
+                    $deep_summary[] = $summary_row;
                 }
             }
+
+            $performer_identifier = isset( $base_params['performer_id'] ) ? (string) $base_params['performer_id'] : '';
 
             $searched_data = array(
                 'deep_summary' => $deep_summary,
                 'search_name'  => $search_name,
             );
+
+            if ( '' !== $performer_identifier ) {
+                $searched_data['performer_id'] = $performer_identifier;
+            }
+
+            if ( $model_post_id ) {
+                $searched_data['model_post_id'] = $model_post_id;
+                $searched_data['model_profile_created'] = $model_profile_created;
+            }
         }
     } elseif ( $is_multi_straight ) {
         $straight_categories = ['69', 'Above Average', 'Amateur', 'Anal', 'Angry', 'Asian', 'Ass', 'Ass To mouth', 'Athletic', 'Auburn Hair', 'Babe', 'Bald', 'Ball Sucking', 'Bathroom', 'Bbc', 'BBW', 'Bdsm', 'Bed', 'Big Ass', 'Big Boobs', 'Big Booty', 'Big Breasts', 'Big Cock', 'Big Tists', 'Bizarre', 'Black Eyes', 'Black Girl', 'Black Hair', 'Blonde', 'Blond Hair', 'Blowjob', 'Blue Eyes', 'Blue Hair', 'Bondage', 'Boots', 'Booty', 'Bossy', 'Brown Eyes', 'Brown Hair', 'Brunette', 'Butt Plug', 'Cam Girl', 'Cam Porn', 'Cameltoe', 'Celebrity', 'Cfnm', 'Cheerleader', 'Clown Hair', 'Cock', 'College Girl', 'Cop', 'Cosplay', 'Cougar', 'Couple', 'Cowgirl', 'Creampie', 'Crew Cut', 'Cum', 'Cum On Tits', 'Cumshot', 'Curious', 'Cut', 'Cute', 'Dance', 'Deepthroat', 'Dilde', 'Dirty', 'Doctor', 'Doggy', 'Domination', 'Double Penetration', 'Ebony', 'Erotic', 'Eye Contact', 'Facesitting', 'Facial', 'Fake Tits', 'Fat Ass', 'Fetish', 'Fingering', 'Fire Red Hair', 'Fishnet', 'Fisting', 'Flirting', 'Foot Sex', 'Footjob', 'Fuck', 'Gag', 'Gaping', 'Gilf', 'Girl', 'Glamour', 'Glasses', 'Green Eyes', 'Grey Eyes', 'Group', 'Gym', 'Hairy', 'Handjob', 'Hard Cock', 'Hd', 'High Heels', 'Homemade', 'Homy', 'Hot', 'Hot Flirt', 'Housewife', 'Huge Cock', 'Huge Tits', 'Innocent', 'Interracial', 'Intim Piercing', 'Jeans', 'Kitchen', 'Ladyboy', 'Large Build', 'Latex', 'Latin', 'Latina', 'Leather', 'Lesbian', 'Lick', 'Lingerie', 'Live Sex', 'Long Hair', 'Long Nails', 'Machine', 'Maid', 'Massage', 'Masturbation', 'Mature', 'Milf', 'Missionary', 'Misstress', 'Moaning', 'Muscular', 'Muslim', 'Naked', 'Nasty', 'Natural Tits', 'Normal Cock', 'Normal Tits', 'Nurse', 'Nylon', 'Office', 'Oiled', 'Orange Hair', 'Orgasm', 'Orgy', 'Outdoor', 'Party', 'Pawg', 'Petite', 'Piercing', 'Pink Hair', 'Pissing', 'Pool', 'Pov', 'Pregnant', 'Princess', 'Public', 'punish', 'Pussy', 'Pvc', 'Quicky', 'Redhead', 'Remote Toy', 'Reverse Cowgirl', 'Riding', 'Rimjob', 'Roleplay', 'Romantic', 'Room', 'Rough', 'Schoolgirl', 'Scissoring', 'Scream', 'Secretary', 'Sensual', 'Sextoy', 'Sexy', 'Shaved', 'Short Girl', 'Short Hair', 'Shoulder Lenght Hair', 'Shy', 'Skinny', 'Slave', 'Sloppy', 'Slutty', 'Small Ass', 'Small Cock', 'Smoking', 'Solo', 'Sologirl', 'squirt', 'Stockings', 'Strap On', 'Stretching', 'Striptease', 'Stroking', 'Suck', 'Swallow', 'Tall', 'Tattoo', 'Teacher', 'Teasing', 'Teen', 'Treesome', 'Tight', 'Tiny Tits', 'Titjob', 'Toy', 'Trimmed', 'Uniform', 'Virgin', 'Watching', 'Wet', 'White', 'Lesbian'];
