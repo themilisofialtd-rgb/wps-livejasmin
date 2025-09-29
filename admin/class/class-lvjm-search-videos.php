@@ -428,20 +428,29 @@ class LVJM_Search_Videos {
                         return array();
                 }
 
-                $names  = array();
-                $source = null;
+                $names = array();
 
                 if ( ! empty( $raw_feed_item['performers'] ) ) {
-                        $source = $raw_feed_item['performers'];
-                } elseif ( ! empty( $raw_feed_item['models'] ) ) {
-                        $source = $raw_feed_item['models'];
+                        if ( is_array( $raw_feed_item['performers'] ) ) {
+                                $names = $raw_feed_item['performers'];
+                        } elseif ( $raw_feed_item['performers'] instanceof \Traversable ) {
+                                $names = iterator_to_array( $raw_feed_item['performers'] );
+                        }
                 }
 
-                if ( null === $source ) {
+                if ( empty( $names ) && ! empty( $raw_feed_item['models'] ) ) {
+                        if ( is_array( $raw_feed_item['models'] ) ) {
+                                $names = $raw_feed_item['models'];
+                        } elseif ( $raw_feed_item['models'] instanceof \Traversable ) {
+                                $names = iterator_to_array( $raw_feed_item['models'] );
+                        }
+                }
+
+                if ( empty( $names ) || ! is_array( $names ) ) {
                         return array();
                 }
 
-                $names = $this->sanitize_performer_source( $source );
+                $names = $this->sanitize_performer_source( $names );
 
                 if ( empty( $names ) ) {
                         return array();
