@@ -32,13 +32,21 @@ class LVJM_Search_Videos {
 	 */
 	private $errors;
 
-	/**
-	 * The feed_url.
-	 *
-	 * @var string $feed_url
-	 * @access private
-	 */
-	private $feed_url;
+        /**
+         * The feed_url.
+         *
+         * @var string $feed_url
+         * @access private
+         */
+        private $feed_url;
+
+        /**
+         * The last root feed URL used for a search.
+         *
+         * @var string $last_root_feed_url
+         * @access private
+         */
+        private $last_root_feed_url = '';
 
 	/**
 	 * The feed_infos.
@@ -97,12 +105,12 @@ class LVJM_Search_Videos {
 	 * @return void
 	 */
 	public function __construct( $params ) {
-        error_log('[WPS-LiveJasmin] class-lvjm-search-videos.php constructor called');
-        error_log('[WPS-LiveJasmin] class-lvjm-search-videos.php constructor called');
-		global $wp_version;
-		$this->wp_version = $wp_version;
-		$this->params     = $params;
-        error_log('[WPS-LiveJasmin] Search Param cat_s: ' . print_r($this->params['cat_s'], true));
+                global $wp_version;
+                $this->wp_version = $wp_version;
+                $this->params     = $params;
+                error_log( '[WPS-LiveJasmin] class-lvjm-search-videos.php constructor called' );
+                $cat_s_log = isset( $this->params['cat_s'] ) ? print_r( $this->params['cat_s'], true ) : '(unset)';
+                error_log( '[WPS-LiveJasmin] Search Param cat_s: ' . $cat_s_log );
 
 		// connecting to API.
 		$api_params = array(
@@ -121,12 +129,11 @@ class LVJM_Search_Videos {
 		);
 
 		$base64_params = base64_encode( wp_json_encode( $api_params ) );
-        error_log('[WPS-LiveJasmin] API Params: ' . print_r($api_params, true));
-        error_log('[WPS-LiveJasmin] API URL: ' . WPSCORE()->get_api_url('lvjm/get_feed', $base64_params));
+                error_log( '[WPS-LiveJasmin] API Params: ' . print_r( $api_params, true ) );
+                error_log( '[WPS-LiveJasmin] API URL: ' . WPSCORE()->get_api_url( 'lvjm/get_feed', $base64_params ) );
 
-		$response = wp_remote_get( WPSCORE()->get_api_url( 'lvjm/get_feed', $base64_params ), $args );
-		$response = wp_remote_get( WPSCORE()->get_api_url( 'lvjm/get_feed', $base64_params ), $args );
-        error_log('[WPS-LiveJasmin] Raw API Response: ' . wp_remote_retrieve_body($response));
+                $response = wp_remote_get( WPSCORE()->get_api_url( 'lvjm/get_feed', $base64_params ), $args );
+                error_log( '[WPS-LiveJasmin] Raw API Response: ' . wp_remote_retrieve_body( $response ) );
 
 		if ( ! is_wp_error( $response ) && 'application/json; charset=UTF-8' === $response['headers']['content-type'] ) {
 
@@ -186,22 +193,33 @@ class LVJM_Search_Videos {
 		return false;
 	}
 
-	/**
-	 * Get videos from the current object.
-	 *
-	 * @since 1.0.0
-	 *
-	 * @return array The videos.
-	 */
-	public function get_videos() {
-		return $this->videos;
-	}
+        /**
+         * Get videos from the current object.
+         *
+         * @since 1.0.0
+         *
+         * @return array The videos.
+         */
+        public function get_videos() {
+                return $this->videos;
+        }
 
-	/**
-	 * Get searched data.
-	 *
-	 * @since 1.0.0
-	 *
+        /**
+         * Get the last root feed URL that was generated for this search.
+         *
+         * @since 1.0.8
+         *
+         * @return string The last root feed URL.
+         */
+        public function get_last_root_feed_url() {
+                return $this->last_root_feed_url;
+        }
+
+        /**
+         * Get searched data.
+         *
+         * @since 1.0.0
+         *
 	 * @return array The searched data.
 	 */
 	public function get_searched_data() {
@@ -302,7 +320,8 @@ class LVJM_Search_Videos {
 		$count_valid_feed_items = 0;
 		$end                    = false;
 
-		$root_feed_url = $this->get_feed_url_with_orientation();
+                $root_feed_url           = $this->get_feed_url_with_orientation();
+                $this->last_root_feed_url = $root_feed_url;
 
 		$args = array(
 			'timeout'   => 300,
