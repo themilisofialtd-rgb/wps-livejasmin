@@ -118,6 +118,248 @@ if ( ! function_exists( 'lvjm_extract_video_id' ) ) {
     }
 }
 
+if ( ! function_exists( 'lvjm_normalize_performer_search_term' ) ) {
+    /**
+     * Normalize a performer name for comparisons.
+     *
+     * @param string $name Performer name to normalize.
+     * @return string
+     */
+    function lvjm_normalize_performer_search_term( $name ) {
+        return strtolower( preg_replace( '/[^a-z0-9]+/i', '', (string) $name ) );
+    }
+}
+
+if ( ! function_exists( 'lvjm_search_performer_videos_in_category' ) ) {
+    /**
+     * Search promo videos for a performer within a specific category.
+     *
+     * @param string $category_id   Category identifier used in the API request.
+     * @param string $category_name Human readable category name for logging.
+     * @param array  $performers    List of performer names to match.
+     * @param array  $params        Additional search parameters.
+     *
+     * @return array{videos: array, matches: array, errors: array}
+     */
+    function lvjm_search_performer_videos_in_category( $category_id, $category_name, $performers, $params = array() ) {
+        $performers = array_values( array_filter( (array) $performers, 'strlen' ) );
+
+        $matches = array();
+        foreach ( $performers as $performer_name ) {
+            $matches[ $performer_name ] = 0;
+        }
+
+        if ( empty( $performers ) ) {
+            return array(
+                'videos'  => array(),
+                'matches' => $matches,
+                'errors'  => array(),
+            );
+        }
+
+        $psid       = get_option( 'wps_lj_psid', '' );
+        $access_key = get_option( 'wps_lj_accesskey', '' );
+
+        if ( '' === $psid || '' === $access_key ) {
+            return array(
+                'videos'  => array(),
+                'matches' => $matches,
+                'errors'  => array(
+                    array(
+                        'code'     => 'missing_credentials',
+                        'message'  => esc_html__( 'LiveJasmin credentials are missing.', 'lvjm_lang' ),
+                        'solution' => esc_html__( 'Please configure your AWEmpire PSID and Access Key.', 'lvjm_lang' ),
+                    ),
+                ),
+            );
+        }
+
+        $normalized_lookup = array();
+        foreach ( $performers as $performer_name ) {
+            $normalized = lvjm_normalize_performer_search_term( $performer_name );
+            if ( '' === $normalized ) {
+                continue;
+            }
+            $normalized_lookup[ $normalized ] = $performer_name;
+        }
+
+        if ( empty( $normalized_lookup ) ) {
+            return array(
+                'videos'  => array(),
+                'matches' => $matches,
+                'errors'  => array(),
+            );
+        }
+
+        $endpoint   = trailingslashit( 'https://pt.ptawe.com/api' ) . 'video-promotion/v1/list';
+        $page_index = 1;
+        $per_page   = 12;
+        $max_results = isset( $params['limit'] ) ? max( 0, (int) $params['limit'] ) : 0;
+
+        $videos    = array();
+        $errors    = array();
+        $seen_ids  = array();
+        $continue  = true;
+
+        while ( $continue ) {
+            $query_args = array(
+                'psid'              => $psid,
+                'accessKey'         => $access_key,
+                'sexualOrientation' => 'straight',
+                'limit'             => $per_page,
+                'pageIndex'         => $page_index,
+            );
+
+            if ( '' !== $category_id ) {
+                $query_args['tags'] = $category_id;
+            }
+
+            $request_url = add_query_arg( $query_args, $endpoint );
+            $response    = wp_remote_get( $request_url, array( 'timeout' => 30 ) );
+
+            if ( is_wp_error( $response ) ) {
+                $errors[] = array(
+                    'code'     => 'http_request_failed',
+                    'message'  => $response->get_error_message(),
+                    'solution' => esc_html__( 'Try the search again later.', 'lvjm_lang' ),
+                );
+                break;
+            }
+
+            $status_code = wp_remote_retrieve_response_code( $response );
+            if ( 200 !== $status_code ) {
+                $errors[] = array(
+                    'code'     => 'http_request_failed',
+                    'message'  => sprintf( esc_html__( 'LiveJasmin API returned HTTP %d.', 'lvjm_lang' ), (int) $status_code ),
+                    'solution' => esc_html__( 'Try the search again later.', 'lvjm_lang' ),
+                );
+                break;
+            }
+
+            $body = json_decode( wp_remote_retrieve_body( $response ), true );
+            if ( ! is_array( $body ) ) {
+                break;
+            }
+
+            $payload = $body;
+            if ( isset( $body['data'] ) && is_array( $body['data'] ) ) {
+                $payload = $body['data'];
+            }
+
+            $videos_chunk = array();
+            if ( isset( $payload['videos'] ) && is_array( $payload['videos'] ) ) {
+                $videos_chunk = $payload['videos'];
+            } elseif ( isset( $payload['data']['videos'] ) && is_array( $payload['data']['videos'] ) ) {
+                $videos_chunk = $payload['data']['videos'];
+            } elseif ( isset( $body['videos'] ) && is_array( $body['videos'] ) ) {
+                $videos_chunk = $body['videos'];
+            }
+
+            if ( empty( $videos_chunk ) ) {
+                break;
+            }
+
+            $stop_iteration = false;
+
+            foreach ( $videos_chunk as $video ) {
+                if ( ! is_array( $video ) ) {
+                    continue;
+                }
+
+                $video_id = isset( $video['id'] ) ? (string) $video['id'] : '';
+
+                $candidates = array();
+                if ( isset( $video['performers'] ) && is_array( $video['performers'] ) ) {
+                    $candidates = $video['performers'];
+                } elseif ( isset( $video['models'] ) && is_array( $video['models'] ) ) {
+                    $candidates = $video['models'];
+                } elseif ( isset( $video['performerNames'] ) && is_array( $video['performerNames'] ) ) {
+                    $candidates = $video['performerNames'];
+                } elseif ( isset( $video['actors'] ) ) {
+                    $actors = is_array( $video['actors'] ) ? $video['actors'] : preg_split( '/[,;]+/', (string) $video['actors'] );
+                    $candidates = array_map( 'trim', (array) $actors );
+                }
+
+                $matched_names = array();
+
+                foreach ( (array) $candidates as $candidate ) {
+                    $normalized_candidate = lvjm_normalize_performer_search_term( $candidate );
+                    if ( '' === $normalized_candidate ) {
+                        continue;
+                    }
+
+                    if ( isset( $normalized_lookup[ $normalized_candidate ] ) ) {
+                        $matched_names[ $normalized_lookup[ $normalized_candidate ] ] = true;
+                    }
+                }
+
+                if ( empty( $matched_names ) ) {
+                    continue;
+                }
+
+                if ( '' !== $video_id ) {
+                    if ( isset( $seen_ids[ $video_id ] ) ) {
+                        continue;
+                    }
+
+                    $seen_ids[ $video_id ] = true;
+                }
+
+                $matched_labels = array_keys( $matched_names );
+
+                foreach ( $matched_labels as $matched_name ) {
+                    if ( ! isset( $matches[ $matched_name ] ) ) {
+                        $matches[ $matched_name ] = 0;
+                    }
+                    ++$matches[ $matched_name ];
+                }
+
+                if ( empty( $video['actors'] ) && ! empty( $matched_labels ) ) {
+                    $video['actors'] = implode( ', ', $matched_labels );
+                }
+
+                $videos[] = $video;
+
+                if ( $max_results > 0 && count( $videos ) >= $max_results ) {
+                    $stop_iteration = true;
+                    break;
+                }
+            }
+
+            if ( $stop_iteration ) {
+                break;
+            }
+
+            $page_count = 0;
+            if ( isset( $payload['pageCount'] ) ) {
+                $page_count = (int) $payload['pageCount'];
+            } elseif ( isset( $payload['pagination']['totalPages'] ) ) {
+                $page_count = (int) $payload['pagination']['totalPages'];
+            } elseif ( isset( $body['pageCount'] ) ) {
+                $page_count = (int) $body['pageCount'];
+            } elseif ( isset( $body['data']['pageCount'] ) ) {
+                $page_count = (int) $body['data']['pageCount'];
+            }
+
+            ++$page_index;
+
+            if ( $page_count > 0 && $page_index > $page_count ) {
+                break;
+            }
+        }
+
+        foreach ( $matches as $name => $count ) {
+            $matches[ $name ] = (int) $count;
+        }
+
+        return array(
+            'videos'  => array_values( $videos ),
+            'matches' => $matches,
+            'errors'  => $errors,
+        );
+    }
+}
+
 if ( ! function_exists( 'lvjm_filter_videos_by_performers' ) ) {
     /**
      * Filter a set of videos by a list of performer names.
@@ -302,19 +544,19 @@ function lvjm_search_videos( $params = '' ) {
         $category_params['performer']          = $primary_performer;
         $category_params['multi_category_search'] = '1';
 
-        $search_videos   = new LVJM_Search_Videos( $category_params );
-        $category_videos = array();
-        $matches         = array();
+        $category_results = lvjm_search_performer_videos_in_category( $category_id, $category_name, $performer_list, $category_params );
+        $category_videos  = isset( $category_results['videos'] ) ? (array) $category_results['videos'] : array();
+        $matches          = isset( $category_results['matches'] ) ? (array) $category_results['matches'] : array();
 
-        if ( $search_videos->has_errors() ) {
-            $errors = array_merge( $errors, (array) $search_videos->get_errors() );
-        } else {
-            $category_videos = (array) $search_videos->get_videos();
-            $matches         = method_exists( $search_videos, 'get_performer_match_counts' ) ? $search_videos->get_performer_match_counts() : array();
+        if ( ! empty( $category_results['errors'] ) ) {
+            $errors = array_merge( $errors, (array) $category_results['errors'] );
         }
 
-        $log_name = '' !== $log_performer ? $log_performer : '(no performer)';
-        lvjm_debug_log( sprintf( '[WPS-LiveJasmin] Category checked: %s | Performer: %s | Videos found: %d', $category_name, $log_name, count( $category_videos ) ) );
+        foreach ( $performer_list as $performer_name ) {
+            $log_name = '' !== $performer_name ? $performer_name : '(no performer)';
+            $count    = isset( $matches[ $performer_name ] ) ? (int) $matches[ $performer_name ] : 0;
+            lvjm_debug_log( sprintf( '[WPS-LiveJasmin] Category: %s | Performer: %s | Videos found: %d', $category_name, $log_name, $count ) );
+        }
 
         $response = array(
             'errors'   => $errors,
@@ -324,7 +566,7 @@ function lvjm_search_videos( $params = '' ) {
                 'name' => $category_name,
             ),
             'performer'    => $log_performer,
-            'matches'      => $matches,
+            'matches'      => array_map( 'intval', $matches ),
         );
 
         if ( $ajax_call ) {

@@ -174,10 +174,10 @@ function lvjm_import_videos_page() {
                                                                         <div class="row">
 
                                                                                                                 <div v-if="performerSearchMode" class="col-xs-12">
-												<div v-if="searchingVideos" class="alert alert-info">
-														<p><?php esc_html_e( 'Currently searching category', 'lvjm_lang' ); ?>: {{ searchProgress.currentCategory || '...' }} <?php esc_html_e( 'for', 'lvjm_lang' ); ?> {{ searchProgress.currentPerformer || selectedPerformer }}</p>
-														<p><?php esc_html_e( 'Videos found so far', 'lvjm_lang' ); ?>: {{ searchProgress.videosFound }}</p>
-												</div>
+                                                                                                <div v-if="searchingVideos" class="alert alert-info">
+                                                                                                                <p><?php esc_html_e( 'Searching category', 'lvjm_lang' ); ?> {{ searchProgress.currentCategory || '...' }} <?php esc_html_e( 'for', 'lvjm_lang' ); ?> {{ searchProgress.currentPerformer || selectedPerformer }}&hellip;</p>
+                                                                                                                <p><?php esc_html_e( 'Videos found so far', 'lvjm_lang' ); ?>: {{ searchProgress.videosFound }}</p>
+                                                                                                </div>
 												<div v-if="!searchingVideos && noPerformerVideos.length" class="alert alert-warning">
 														<p v-for="(name, index) in noPerformerVideos" v-bind:key="index"><?php esc_html_e( 'No promo videos available for', 'lvjm_lang' ); ?> {{ name || (data.objectL10n && data.objectL10n.no_performer_filter ? data.objectL10n.no_performer_filter : '<?php esc_html_e( 'No performer filter', 'lvjm_lang' ); ?>') }} <?php esc_html_e( 'in straight categories.', 'lvjm_lang' ); ?></p>
 												</div>
