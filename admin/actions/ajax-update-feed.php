@@ -20,12 +20,10 @@ function lvjm_update_feed( $params = '' ) {
 	$ajax_call          = '' === $params;
 	$last_update_method = $ajax_call ? 'manual' : 'auto';
 
-        if ( $ajax_call ) {
-                check_ajax_referer( 'ajax-nonce', 'nonce' );
-                $params = isset( $_POST ) ? lvjm_recursive_sanitize_text_field( wp_unslash( $_POST ) ) : array();
-        } else {
-                $params = lvjm_recursive_sanitize_text_field( $params );
-        }
+	if ( $ajax_call ) {
+		check_ajax_referer( 'ajax-nonce', 'nonce' );
+		$params = $_POST;
+	}
 
 	if ( ! isset( $params['feed_id'] ) ) {
 		wp_die( 'Some parameters are missing!' );
