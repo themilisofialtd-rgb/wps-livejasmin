@@ -1,0 +1,21 @@
+/* === MODEL RATING BAR === */
+.tmw-rating-wrapper { margin-top: 6px; }
+.tmw-views { font-size: 13px; color: #ccc; }
+.tmw-rating-bar {
+  width: 120px;
+  height: 6px;
+  background: #222;
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 3px 0;
+}
+.tmw-rating-fill { background: #e91e63; height: 100%; transition: width .3s; }
+.tmw-rating-icons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #ccc;
+}
+.tmw-rating-icons .like i,
+.tmw-rating-icons .dislike i { color: #e91e63; }
