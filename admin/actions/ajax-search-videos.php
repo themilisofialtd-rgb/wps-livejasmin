@@ -141,7 +141,7 @@ function lvjm_search_videos( $params = '' ) {
             $message .= sprintf( ' | Profile created: %s', $profile_created );
         }
 
-        error_log( $message );
+        lvjm_log( $message );
     };
 
     if ( ! function_exists( 'lvjm_find_or_create_model_post' ) ) {
@@ -182,7 +182,7 @@ function lvjm_search_videos( $params = '' ) {
             $log_categories = sanitize_text_field( $log_categories );
         }
 
-        error_log(
+        lvjm_log(
             sprintf(
                 '[WPS-LiveJasmin] AJAX payload performer: %s | search_name: %s | deep_search: %s | category: %s',
                 $log_performer,
@@ -291,7 +291,7 @@ function lvjm_search_videos( $params = '' ) {
                             $tag_debug   = sanitize_text_field( $tag_debug );
                         }
 
-                        error_log(
+                        lvjm_log(
                             sprintf(
                                 '[WPS-LiveJasmin] Deep Search candidates | Category: %s | Video: %s | Names: %s',
                                 '' !== $tag_debug ? $tag_debug : '-',
@@ -317,7 +317,7 @@ function lvjm_search_videos( $params = '' ) {
                                     $video_id      = sanitize_text_field( $video_id );
                                 }
 
-                                error_log(
+                                lvjm_log(
                                     sprintf(
                                         '[WPS-LiveJasmin] Deep Search match | Video: %s | Candidate: %s',
                                         '' !== $video_id ? $video_id : '-',

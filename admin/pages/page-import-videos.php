@@ -1,6 +1,6 @@
 <?php
 
-error_log('[WPS-LiveJasmin] Import videos page accessed');
+lvjm_log( '[WPS-LiveJasmin] Import videos page accessed' );
 /**
  * Admin Import Page plugin file.
  *

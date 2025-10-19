@@ -15,7 +15,39 @@
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || die( 'Cheatin&#8217; uh?' );
 
-error_log('[WPS-LiveJasmin] Main plugin file loaded');
+if ( ! function_exists( 'lvjm_log' ) ) {
+        /**
+         * Log debug messages when debugging is enabled.
+         *
+         * @param mixed $message Message to log.
+         * @return void
+         */
+        function lvjm_log( $message ) {
+                $should_log = defined( 'WP_DEBUG' ) && WP_DEBUG;
+
+                /**
+                 * Filter whether LiveJasmin should record debug logs.
+                 *
+                 * @param bool  $should_log Whether logging is enabled.
+                 * @param mixed $message    Message about to be logged.
+                 */
+                if ( function_exists( 'apply_filters' ) ) {
+                        $should_log = apply_filters( 'lvjm_should_log', $should_log, $message );
+                }
+
+                if ( ! $should_log ) {
+                        return;
+                }
+
+                if ( is_array( $message ) || is_object( $message ) ) {
+                        $message = print_r( $message, true ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_print_r
+                }
+
+                error_log( $message ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+        }
+}
+
+lvjm_log( '[WPS-LiveJasmin] Main plugin file loaded' );
 
 if ( ! class_exists( 'LVJM' ) ) {
 	/**

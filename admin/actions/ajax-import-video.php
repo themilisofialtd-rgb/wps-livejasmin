@@ -358,7 +358,7 @@ add_action( 'wps_livejasmin_after_video_import', function( $post_id, $video_data
 
         // Ensure taxonomy exists.
         if ( ! taxonomy_exists( 'models' ) ) {
-                error_log( '[WPS-LJ-LINK] models taxonomy not found.' );
+                lvjm_log( '[WPS-LJ-LINK] models taxonomy not found.' );
                 return;
         }
 
@@ -369,16 +369,16 @@ add_action( 'wps_livejasmin_after_video_import', function( $post_id, $video_data
                         'slug' => $model_slug,
                 ) );
                 if ( is_wp_error( $term ) ) {
-                        error_log( '[WPS-LJ-LINK] Failed to insert model term for ' . $model_name );
+                        lvjm_log( '[WPS-LJ-LINK] Failed to insert model term for ' . $model_name );
                         return;
                 }
-                error_log( '[WPS-LJ-LINK] Created new model term: ' . $model_name );
+                lvjm_log( '[WPS-LJ-LINK] Created new model term: ' . $model_name );
         }
 
         // Assign taxonomy term to video.
         if ( ! is_wp_error( $term ) ) {
                 wp_set_post_terms( $post_id, array( (int) $term['term_id'] ), 'models', true );
-                error_log( '[WPS-LJ-LINK] Linked video ' . $post_id . ' → model ' . $model_name );
+                lvjm_log( '[WPS-LJ-LINK] Linked video ' . $post_id . ' → model ' . $model_name );
         }
 }, 10, 2 );
 
@@ -440,7 +440,7 @@ add_action( 'admin_init', function() {
 
                         if ( ! is_wp_error( $term ) ) {
                                 wp_set_post_terms( $video->ID, array( (int) $term['term_id'] ), 'models', true );
-                                error_log( '[WPS-LJ-RELINK] Fixed model link for video ID ' . $video->ID . ' (' . $model . ')' );
+                                lvjm_log( '[WPS-LJ-RELINK] Fixed model link for video ID ' . $video->ID . ' (' . $model . ')' );
                         }
                 }
 
@@ -508,7 +508,7 @@ if ( ! function_exists( 'lvjm_ensure_model_profiles_from_terms' ) ) {
                                 $count = is_array( $related ) ? count( $related ) : 0;
                                 $flag  = $profile_created ? 'yes' : 'no';
 
-                                error_log(
+                                lvjm_log(
                                         sprintf(
                                                 '[WPS-LiveJasmin] Name: %s | Category: %s | Videos found: %d | Profile created: %s',
                                                 '' !== $name ? $name : '-',

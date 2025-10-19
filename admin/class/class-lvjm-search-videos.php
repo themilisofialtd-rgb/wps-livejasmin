@@ -424,7 +424,7 @@ class LVJM_Search_Videos {
                                         $log_filter = sanitize_text_field( $log_filter );
                                 }
 
-                                error_log(
+                                lvjm_log(
                                         sprintf(
                                                 '[WPS-LiveJasmin] Applying performer filter: %s | Parameters: %s | Active filter: %s',
                                                 '' !== $log_name ? $log_name : '-',
@@ -617,7 +617,7 @@ class LVJM_Search_Videos {
                 $sanitized_url = $this->sanitize_url_for_log( $this->feed_url );
                 $filter_label  = $this->get_active_performer_filter_for_log();
 
-                error_log(
+                lvjm_log(
                         sprintf(
                                 '[WPS-LiveJasmin] Raw API response | URL: %s | Performer filter: %s',
                                 '' !== $sanitized_url ? $sanitized_url : '-',
@@ -625,7 +625,7 @@ class LVJM_Search_Videos {
                         )
                 );
 
-                error_log( $raw_body );
+                lvjm_log( $raw_body );
         }
 
 	/**
@@ -953,7 +953,7 @@ class LVJM_Search_Videos {
                                 $log_sources    = array_map( 'sanitize_text_field', $log_sources );
                         }
 
-                        error_log(
+                        lvjm_log(
                                 sprintf(
                                         '[WPS-LiveJasmin] Video %s | Sources: %s | Candidates: %s',
                                         $video_label,
@@ -987,7 +987,7 @@ class LVJM_Search_Videos {
                                         $video_label   = sanitize_text_field( $video_label );
                                 }
 
-                                error_log(
+                                lvjm_log(
                                         sprintf(
                                                 '[WPS-LiveJasmin] Video %s matched performer candidate: %s',
                                                 $video_label,
@@ -1044,7 +1044,7 @@ class LVJM_Search_Videos {
                         (int) $count
                 );
 
-                error_log( $message );
+                lvjm_log( $message );
         }
 
 
@@ -1136,7 +1136,7 @@ class LVJM_Search_Videos {
                                 $log_url     = $this->sanitize_url_for_log( $this->feed_url );
                                 $log_filter  = $this->get_active_performer_filter_for_log();
 
-                                error_log(
+                                lvjm_log(
                                         sprintf(
                                                 '[WPS-LiveJasmin] Request URL: %s | Performer filter: %s',
                                                 '' !== $log_url ? $log_url : '-',
@@ -1192,7 +1192,7 @@ class LVJM_Search_Videos {
                                         $log_filter = sanitize_text_field( $log_filter );
                                 }
 
-                                error_log(
+                                lvjm_log(
                                         sprintf(
                                                 '[WPS-LiveJasmin] API response status: %s | Videos: %d | Performer filter: %s',
                                                 '' !== $log_status ? $log_status : '-',
@@ -1224,7 +1224,7 @@ class LVJM_Search_Videos {
                                                 $log_error_message = sanitize_text_field( $log_error_message );
                                         }
 
-                                        error_log(
+                                        lvjm_log(
                                                 sprintf(
                                                         '[WPS-LiveJasmin] API error response: %s',
                                                         '' !== $log_error_message ? $log_error_message : '-'
@@ -1258,7 +1258,7 @@ class LVJM_Search_Videos {
                                                 $log_filter = sanitize_text_field( $log_filter );
                                         }
 
-                                        error_log(
+                                        lvjm_log(
                                                 sprintf(
                                                         '[WPS-LiveJasmin] LiveJasmin returned no videos for performer filter: %s',
                                                         '' !== $log_filter ? $log_filter : '-'
