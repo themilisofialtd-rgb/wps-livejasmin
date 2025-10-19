@@ -91,9 +91,10 @@ function lvjm_options() {
 			'name'  => 'Main tab',
 			'id'    => 'main-tab',
 			'items' => array(
-				'general'             => '<i class="xbox-icon xbox-icon-gear"></i>General',
-				'auto-pilot'          => '<i class="xbox-icon xbox-icon-plane"></i>Auto-Pilot',
-				'data-to-import'      => '<i class="xbox-icon xbox-icon-download"></i>Data to import',
+                                'general'             => '<i class="xbox-icon xbox-icon-gear"></i>General',
+                                'auto-pilot'          => '<i class="xbox-icon xbox-icon-plane"></i>Auto-Pilot',
+                                'seo-automation'      => '<i class="xbox-icon xbox-icon-rocket"></i>SEO Automation',
+                                'data-to-import'      => '<i class="xbox-icon xbox-icon-download"></i>Data to import',
 				'theme-compatibility' => '<i class="xbox-icon xbox-icon-desktop"></i>Theme Compatibility',
 			),
 		)
@@ -275,12 +276,75 @@ function lvjm_options() {
 		);
 		$xbox->close_mixed_field();
 
-	$xbox->close_tab_item( 'auto-pilot' );
+        $xbox->close_tab_item( 'auto-pilot' );
 
-	/**
-	 * Data.
-	 */
-	$xbox->open_tab_item( 'data-to-import' );
+        $ai_nonce   = wp_create_nonce( 'wps-ai-seo-autopilot' );
+        $batch_size = (int) apply_filters( 'wps_livejasmin_ai_seo_manual_batch', 5 );
+        if ( $batch_size < 1 ) {
+                $batch_size = 5;
+        }
+
+        $button_html  = '<p>';
+        $button_html .= sprintf(
+                '<button type="button" class="button button-primary" id="wps-ai-seo-run" data-nonce="%1$s" data-batch="%2$s" data-status-target="wps-ai-seo-status">%3$s</button>',
+                esc_attr( $ai_nonce ),
+                esc_attr( $batch_size ),
+                esc_html__( 'Run SEO Autopilot Now', 'lvjm_lang' )
+        );
+        $button_html .= '</p>';
+        $button_html .= '<p class="description">' . esc_html__( 'Process existing posts with the AI SEO autopilot immediately.', 'lvjm_lang' ) . '</p>';
+        $button_html .= '<p id="wps-ai-seo-status" class="description"></p>';
+
+        /**
+         * SEO Automation.
+         */
+        $xbox->open_tab_item( 'seo-automation' );
+                $xbox->add_field(
+                        array(
+                                'id'      => 'lvjm-ai-seo-enable',
+                                'name'    => esc_html__( 'Enable AI-Based RankMath Auto-Generation', 'lvjm_lang' ),
+                                'type'    => 'switcher',
+                                'default' => 'on',
+                                'grid'    => '4-of-8',
+                                'desc'    => esc_html__( 'Automatically build focus keywords, SEO titles, and meta descriptions for imported videos.', 'lvjm_lang' ),
+                        )
+                );
+
+                $xbox->add_field(
+                        array(
+                                'id'      => 'lvjm-ai-seo-only-empty',
+                                'name'    => esc_html__( 'Only fill empty RankMath fields', 'lvjm_lang' ),
+                                'type'    => 'switcher',
+                                'default' => 'on',
+                                'grid'    => '4-of-8',
+                                'desc'    => esc_html__( 'Leave existing RankMath metadata untouched when values are already present.', 'lvjm_lang' ),
+                        )
+                );
+
+                $xbox->add_field(
+                        array(
+                                'id'      => 'lvjm-ai-seo-logging',
+                                'name'    => esc_html__( 'Log AI SEO actions to debug.log', 'lvjm_lang' ),
+                                'type'    => 'switcher',
+                                'default' => 'on',
+                                'grid'    => '4-of-8',
+                                'desc'    => esc_html__( 'Record autopilot activity inside wp-content/debug.log when debugging is enabled.', 'lvjm_lang' ),
+                        )
+                );
+
+                $xbox->add_field(
+                        array(
+                                'id'      => 'lvjm-ai-seo-run',
+                                'type'    => 'html',
+                                'content' => $button_html,
+                        )
+                );
+        $xbox->close_tab_item( 'seo-automation' );
+
+        /**
+         * Data.
+         */
+        $xbox->open_tab_item( 'data-to-import' );
 
 	$xbox->add_field(
 		array(
