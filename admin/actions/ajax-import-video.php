@@ -382,6 +382,56 @@ add_action( 'wps_livejasmin_after_video_import', function( $post_id, $video_data
         }
 }, 10, 2 );
 
+/**
+ * TMW Addon — RankMath Auto-SEO for Auto-Created Model CPT
+ * Version: v1.5.3-wps-livejasmin-seo-autofill
+ */
+add_action( 'wps_livejasmin_after_video_import', function( $post_id, $video_data ) {
+        if ( empty( $video_data['model_name'] ) ) {
+                return;
+        }
+
+        $model_name = trim( $video_data['model_name'] );
+        $model_slug = sanitize_title( $model_name );
+
+        // Find the model CPT.
+        $model_post = get_page_by_path( $model_slug, OBJECT, 'model' );
+        if ( ! $model_post ) {
+                return;
+        }
+
+        $model_id = $model_post->ID;
+
+        // === RankMath Meta Setup ===
+        $seo_title = sprintf( '%s – Live Webcam Model Profile & Videos', $model_name );
+        $seo_desc  = sprintf( 'Watch %s live on webcam! Explore her best shows, videos, and private sessions now on Top-Models.Webcam.', $model_name );
+
+        update_post_meta( $model_id, 'rank_math_title', $seo_title );
+        update_post_meta( $model_id, 'rank_math_description', $seo_desc );
+        update_post_meta( $model_id, 'rank_math_focus_keyword', $model_name );
+        update_post_meta( $model_id, 'rank_math_og_title', $seo_title );
+        update_post_meta( $model_id, 'rank_math_og_description', $seo_desc );
+        update_post_meta( $model_id, 'rank_math_twitter_title', $seo_title );
+        update_post_meta( $model_id, 'rank_math_twitter_description', $seo_desc );
+
+        // Optional schema markup for better SERP.
+        $schema = array(
+                '@context' => 'https://schema.org',
+                '@type'    => 'Person',
+                'name'     => $model_name,
+                'url'      => get_permalink( $model_id ),
+                'jobTitle' => 'Cam Model',
+                'worksFor' => array(
+                        '@type' => 'Organization',
+                        'name'  => 'Top-Models.Webcam',
+                ),
+        );
+        update_post_meta( $model_id, 'rank_math_rich_snippet', 'person' );
+        update_post_meta( $model_id, 'rank_math_snippet_person', wp_json_encode( $schema ) );
+
+        error_log( '[WPS-LJ-SEO] Applied RankMath SEO fields to model ' . $model_name . ' (ID ' . $model_id . ')' );
+}, 25, 2 );
+
 // === One-time retro-link fix ===
 add_action( 'admin_init', function() {
         if ( ! current_user_can( 'manage_options' ) ) {
