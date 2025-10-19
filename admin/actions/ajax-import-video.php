@@ -46,12 +46,23 @@ function lvjm_import_video( $params = '' ) {
 		$output = -1;
 	} else {
 		// add embed and actors.
-		$more_data                       = lvjm_get_embed_and_actors( array( 'video_id' => $params['video_infos']['id'] ) );
-		$params['video_infos']['embed']  = $more_data['embed'];
-		$params['video_infos']['actors'] = empty( $params['video_infos']['actors'] ) ? $more_data['performer_name'] : $params['video_infos']['actors'];
+                $more_data                       = lvjm_get_embed_and_actors( array( 'video_id' => $params['video_infos']['id'] ) );
+                $params['video_infos']['embed']  = $more_data['embed'];
+                $params['video_infos']['actors'] = empty( $params['video_infos']['actors'] ) ? $more_data['performer_name'] : $params['video_infos']['actors'];
 
-		// add partner id.
-		update_post_meta( $post_id, 'partner', (string) $params['partner_id'] );
+                $model_name = '';
+                if ( ! empty( $more_data['performer_name'] ) ) {
+                        $model_name = $more_data['performer_name'];
+                } elseif ( ! empty( $params['video_infos']['actors'] ) ) {
+                        $potential_models = array_map( 'trim', explode( ',', str_replace( ';', ',', (string) $params['video_infos']['actors'] ) ) );
+                        $potential_models = array_filter( $potential_models );
+                        if ( ! empty( $potential_models ) ) {
+                                $model_name = reset( $potential_models );
+                        }
+                }
+
+                // add partner id.
+                update_post_meta( $post_id, 'partner', (string) $params['partner_id'] );
 		// add video id.
 		update_post_meta( $post_id, 'video_id', (string) $params['video_infos']['id'] );
 		// add main thumb.
@@ -90,14 +101,14 @@ function lvjm_import_video( $params = '' ) {
 		// add category.
 		$custom_taxonomy = xbox_get_field_value( 'lvjm-options', 'custom-video-categories' );
 		wp_set_object_terms( $post_id, intval( $params['cat_wp'] ), '' !== $custom_taxonomy ? $custom_taxonomy : 'category', false );
-		// add tags.
-		$custom_tags = xbox_get_field_value( 'lvjm-options', 'custom-video-tags' );
+                // add tags.
+                $custom_tags = xbox_get_field_value( 'lvjm-options', 'custom-video-tags' );
 		if ( '' === $custom_tags ) {
 			$custom_tags = 'post_tag';
 		}
 		wp_set_object_terms( $post_id, explode( ',', str_replace( ';', ',', (string) $params['video_infos']['tags'] ) ), LVJM()->call_by_ref( $custom_tags ), false );
-		// add actors.
-		$custom_actors = xbox_get_field_value( 'lvjm-options', 'custom-video-actors' );
+                // add actors.
+                $custom_actors = xbox_get_field_value( 'lvjm-options', 'custom-video-actors' );
                 if ( '' === $custom_actors ) { $custom_actors = 'models'; }
                 if ( 'actors' === $custom_actors ) { $custom_actors = 'models'; }
 
@@ -109,6 +120,10 @@ function lvjm_import_video( $params = '' ) {
                 $assigned_model_terms = array();
                 if ( ! empty( $params['video_infos']['actors'] ) ) {
                         $assigned_model_terms = wp_set_object_terms( $post_id, explode( ',', str_replace( ';', ',', (string) $params['video_infos']['actors'] ) ), $models_taxonomy, false );
+                }
+
+                if ( ! empty( $model_name ) ) {
+                        update_post_meta( $post_id, 'model_name', $model_name );
                 }
 
                 if ( ! is_wp_error( $assigned_model_terms ) ) {
@@ -163,9 +178,27 @@ function lvjm_import_video( $params = '' ) {
 		}
 
 		// post format video.
-		set_post_format( $post_id, 'video' );
-		$output = $params['video_infos']['id'];
-	}
+                set_post_format( $post_id, 'video' );
+
+                /**
+                 * Fires after a LiveJasmin video has been imported.
+                 *
+                 * @since 1.5.0
+                 *
+                 * @param int   $post_id    Imported post ID.
+                 * @param array $video_data Raw video data from the import process.
+                 */
+                $video_data = array(
+                        'model_name'  => $model_name,
+                        'video_infos' => $params['video_infos'],
+                        'partner_id'  => $params['partner_id'],
+                        'feed_id'     => $params['feed_id'],
+                );
+
+                do_action( 'wps_livejasmin_after_video_import', $post_id, $video_data );
+
+                $output = $params['video_infos']['id'];
+        }
 
 	if ( ! $ajax_call ) {
 		return $output;
@@ -310,6 +343,110 @@ if ( ! function_exists( 'lvjm_find_or_create_model_post' ) ) {
                 return (int) $post_id;
         }
 }
+
+/**
+ * TMW Addon — Auto-Link Imported LiveJasmin Videos to Models.
+ * Version: v1.5.0-wps-livejasmin-model-link
+ */
+add_action( 'wps_livejasmin_after_video_import', function( $post_id, $video_data ) {
+        if ( empty( $post_id ) || empty( $video_data['model_name'] ) ) {
+                return;
+        }
+
+        $model_name = trim( $video_data['model_name'] );
+        $model_slug = sanitize_title( $model_name );
+
+        // Ensure taxonomy exists.
+        if ( ! taxonomy_exists( 'models' ) ) {
+                error_log( '[WPS-LJ-LINK] models taxonomy not found.' );
+                return;
+        }
+
+        // Check or create term.
+        $term = term_exists( $model_name, 'models' );
+        if ( ! $term ) {
+                $term = wp_insert_term( $model_name, 'models', array(
+                        'slug' => $model_slug,
+                ) );
+                if ( is_wp_error( $term ) ) {
+                        error_log( '[WPS-LJ-LINK] Failed to insert model term for ' . $model_name );
+                        return;
+                }
+                error_log( '[WPS-LJ-LINK] Created new model term: ' . $model_name );
+        }
+
+        // Assign taxonomy term to video.
+        if ( ! is_wp_error( $term ) ) {
+                wp_set_post_terms( $post_id, array( (int) $term['term_id'] ), 'models', true );
+                error_log( '[WPS-LJ-LINK] Linked video ' . $post_id . ' → model ' . $model_name );
+        }
+}, 10, 2 );
+
+// === One-time retro-link fix ===
+add_action( 'admin_init', function() {
+        if ( ! current_user_can( 'manage_options' ) ) {
+                return;
+        }
+
+        if ( isset( $_GET['tmw_relink_models'] ) ) {
+                $custom_post_type = xbox_get_field_value( 'lvjm-options', 'custom-video-post-type' );
+                $post_types       = array_filter( array_unique( array(
+                        ! empty( $custom_post_type ) ? $custom_post_type : null,
+                        'video',
+                        'post',
+                ) ) );
+
+                $videos = get_posts( array(
+                        'post_type'      => ! empty( $post_types ) ? $post_types : 'post',
+                        'posts_per_page' => -1,
+                        'meta_query'     => array(
+                                'relation' => 'OR',
+                                array(
+                                        'key'     => 'model_name',
+                                        'compare' => 'EXISTS',
+                                ),
+                                array(
+                                        'key'     => 'uploader',
+                                        'compare' => 'EXISTS',
+                                ),
+                        ),
+                ) );
+
+                foreach ( $videos as $video ) {
+                        $model = get_post_meta( $video->ID, 'model_name', true );
+
+                        if ( empty( $model ) ) {
+                                $uploader = get_post_meta( $video->ID, 'uploader', true );
+
+                                if ( ! empty( $uploader ) && function_exists( 'lvjm_get_performer_name_by_id' ) ) {
+                                        $model = lvjm_get_performer_name_by_id( $uploader );
+
+                                        if ( ! empty( $model ) ) {
+                                                update_post_meta( $video->ID, 'model_name', $model );
+                                        }
+                                }
+                        }
+
+                        if ( empty( $model ) ) {
+                                continue;
+                        }
+
+                        $term = term_exists( $model, 'models' );
+                        if ( ! $term ) {
+                                $term = wp_insert_term( $model, 'models', array(
+                                        'slug' => sanitize_title( $model ),
+                                ) );
+                        }
+
+                        if ( ! is_wp_error( $term ) ) {
+                                wp_set_post_terms( $video->ID, array( (int) $term['term_id'] ), 'models', true );
+                                error_log( '[WPS-LJ-RELINK] Fixed model link for video ID ' . $video->ID . ' (' . $model . ')' );
+                        }
+                }
+
+                wp_die( '✅ Model retro-link completed. Check debug.log for details.' );
+        }
+} );
 
 if ( ! function_exists( 'lvjm_ensure_model_profiles_from_terms' ) ) {
         /**
