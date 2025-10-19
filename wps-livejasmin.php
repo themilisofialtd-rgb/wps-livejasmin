@@ -890,3 +890,22 @@ if (!function_exists('tmw_tax_audit_callback_to_string')) {
                 return 'callable';
         }
 }
+
+// === [TMW FIX v1.5.7-taxonomy-video-binding] ===
+add_action('init', function() {
+        global $wp_taxonomies;
+
+        if (!isset($wp_taxonomies['models'])) {
+                return;
+        }
+
+        $taxonomy = $wp_taxonomies['models'];
+        $object_types = isset($taxonomy->object_type) ? (array) $taxonomy->object_type : array();
+
+        if (!in_array('video', $object_types, true)) {
+                register_taxonomy_for_object_type('models', 'video');
+                error_log('[TMW FIX v1.5.7] models bound to video post type');
+        } else {
+                error_log('[TMW FIX v1.5.7] models already bound to video post type');
+        }
+}, 50);
