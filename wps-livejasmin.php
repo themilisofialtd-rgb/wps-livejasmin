@@ -909,3 +909,22 @@ add_action('init', function() {
                 error_log('[TMW FIX v1.5.7] models already bound to video post type');
         }
 }, 50);
+
+// === [TMW FIX v1.5.8-metabox-restore] ===
+add_action('add_meta_boxes_video', function() {
+        if (!taxonomy_exists('models')) {
+                return;
+        }
+
+        // Rebind and ensure the meta box appears.
+        register_taxonomy_for_object_type('models', 'video');
+
+        global $wp_taxonomies;
+        if (isset($wp_taxonomies['models'])) {
+                $wp_taxonomies['models']->show_ui      = true;
+                $wp_taxonomies['models']->show_in_menu = true;
+                $wp_taxonomies['models']->meta_box_cb  = 'post_tags_meta_box';
+        }
+
+        error_log('[TMW FIX v1.5.8] models metabox reattached for video editor');
+}, 10);
