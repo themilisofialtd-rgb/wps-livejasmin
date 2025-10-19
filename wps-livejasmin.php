@@ -930,3 +930,30 @@ add_action('add_meta_boxes_video', function () {
 
         error_log('[TMW FIX v1.5.8] Models metabox reattached for video editor');
 }, 10);
+
+// === [TMW FIX v1.5.9-final-taxonomy-binding] ===
+add_action('admin_init', function () {
+        if (!taxonomy_exists('models')) {
+                error_log('[TMW FIX v1.5.9] models taxonomy missing at admin_init');
+                return;
+        }
+
+        // Rebind models taxonomy to video post type as last action.
+        register_taxonomy_for_object_type('models', 'video');
+
+        global $wp_taxonomies;
+        if (isset($wp_taxonomies['models'])) {
+                $t = $wp_taxonomies['models'];
+                $t->show_ui           = true;
+                $t->show_in_menu      = true;
+                $t->show_admin_column = true;
+                $t->meta_box_cb       = 'post_tags_meta_box';
+
+                // Ensure "video" is in object_types array.
+                if (!in_array('video', (array) $t->object_type, true)) {
+                        $t->object_type[] = 'video';
+                }
+        }
+
+        error_log('[TMW FIX v1.5.9] models permanently bound to video post type after all hooks');
+}, 99);
