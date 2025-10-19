@@ -1,6 +1,6 @@
 <?php
 
-error_log('[WPS-LiveJasmin] Config loaded');
+lvjm_log( '[WPS-LiveJasmin] Config loaded' );
 /**
  * Config plugin file.
  *
