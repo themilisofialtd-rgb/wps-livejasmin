@@ -916,7 +916,7 @@ add_action('add_meta_boxes_video', function() {
                 return;
         }
 
-        // Rebind and ensure the meta box appears.
+        // Rebind and ensure the meta box appears
         register_taxonomy_for_object_type('models', 'video');
 
         global $wp_taxonomies;
