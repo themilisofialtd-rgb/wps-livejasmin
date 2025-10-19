@@ -119,7 +119,6 @@ if ( ! class_exists( 'LVJM' ) ) {
                                         require_once LVJM_DIR . 'admin/vendors/simple-html-dom-x/simple-html-dom.php';
                                         require_once LVJM_DIR . 'admin/pages/page-options-x.php';
                                         require_once LVJM_DIR . 'includes/class-wps-ai-seo-autopilot.php';
-                                        WPS_LiveJasmin_AI_SEO_Autopilot::instance();
                                         if ( is_admin() || wp_next_scheduled( 'lvjm_update_one_feed' ) ) {
                                                 // load admin filters.
                                                 self::$instance->load_admin_filters();
