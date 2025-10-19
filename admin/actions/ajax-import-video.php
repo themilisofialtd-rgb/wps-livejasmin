@@ -26,41 +26,65 @@ function lvjm_import_video( $params = '' ) {
 		wp_die( 'Some parameters are missing!' );
 	}
 
-	// get custom post type.
-	$custom_post_type = xbox_get_field_value( 'lvjm-options', 'custom-video-post-type' );
+        $more_data                       = lvjm_get_embed_and_actors( array( 'video_id' => $params['video_infos']['id'] ) );
+        $params['video_infos']['embed']  = $more_data['embed'];
+        $params['video_infos']['actors'] = empty( $params['video_infos']['actors'] ) ? $more_data['performer_name'] : $params['video_infos']['actors'];
 
-	// prepare post data.
-	$post_args = array(
-		'post_author'  => '1',
-		'post_status'  => '' !== $params['status'] ? $params['status'] : xbox_get_field_value( 'lvjm-options', 'default-status' ),
-		'post_type'    => '' !== $custom_post_type ? $custom_post_type : 'post',
-		'post_title'   => isset( $params['video_infos']['title'] ) ? $params['video_infos']['title'] : 'Untitled',
-		'post_content' => isset( $params['video_infos']['desc'] ) ? $params['video_infos']['desc'] : '',
-	);
-
-	// insert post.
-	$post_id = wp_insert_post( $post_args, true );
-
-	// add post metas & taxonomies.
-	if ( is_wp_error( $post_id ) ) {
-		$output = -1;
-	} else {
-		// add embed and actors.
-                $more_data                       = lvjm_get_embed_and_actors( array( 'video_id' => $params['video_infos']['id'] ) );
-                $params['video_infos']['embed']  = $more_data['embed'];
-                $params['video_infos']['actors'] = empty( $params['video_infos']['actors'] ) ? $more_data['performer_name'] : $params['video_infos']['actors'];
-
-                $model_name = '';
-                if ( ! empty( $more_data['performer_name'] ) ) {
-                        $model_name = $more_data['performer_name'];
-                } elseif ( ! empty( $params['video_infos']['actors'] ) ) {
-                        $potential_models = array_map( 'trim', explode( ',', str_replace( ';', ',', (string) $params['video_infos']['actors'] ) ) );
-                        $potential_models = array_filter( $potential_models );
-                        if ( ! empty( $potential_models ) ) {
-                                $model_name = reset( $potential_models );
-                        }
+        $model_name = '';
+        if ( ! empty( $more_data['performer_name'] ) ) {
+                $model_name = $more_data['performer_name'];
+        } elseif ( ! empty( $params['video_infos']['actors'] ) ) {
+                $potential_models = array_map( 'trim', explode( ',', str_replace( ';', ',', (string) $params['video_infos']['actors'] ) ) );
+                $potential_models = array_filter( $potential_models );
+                if ( ! empty( $potential_models ) ) {
+                        $model_name = reset( $potential_models );
                 }
+        }
 
+        $pre_insert_video_data = array(
+                'title'       => isset( $params['video_infos']['title'] ) ? $params['video_infos']['title'] : 'Untitled',
+                'model_name'  => $model_name,
+                'video_infos' => $params['video_infos'],
+                'partner_id'  => $params['partner_id'],
+                'feed_id'     => $params['feed_id'],
+        );
+
+        /**
+         * Fires before a LiveJasmin video post is inserted.
+         *
+         * @since 1.5.5
+         *
+         * @param array $pre_insert_video_data Video data passed by reference allowing modifications.
+         */
+        do_action_ref_array( 'wps_livejasmin_before_video_insert', array( &$pre_insert_video_data ) );
+
+        if ( isset( $pre_insert_video_data['title'] ) ) {
+                $params['video_infos']['title'] = $pre_insert_video_data['title'];
+        }
+
+        if ( isset( $pre_insert_video_data['model_name'] ) ) {
+                $model_name = $pre_insert_video_data['model_name'];
+        }
+
+        // get custom post type.
+        $custom_post_type = xbox_get_field_value( 'lvjm-options', 'custom-video-post-type' );
+
+        // prepare post data.
+        $post_args = array(
+                'post_author'  => '1',
+                'post_status'  => '' !== $params['status'] ? $params['status'] : xbox_get_field_value( 'lvjm-options', 'default-status' ),
+                'post_type'    => '' !== $custom_post_type ? $custom_post_type : 'post',
+                'post_title'   => $params['video_infos']['title'],
+                'post_content' => isset( $params['video_infos']['desc'] ) ? $params['video_infos']['desc'] : '',
+        );
+
+        // insert post.
+        $post_id = wp_insert_post( $post_args, true );
+
+        // add post metas & taxonomies.
+        if ( is_wp_error( $post_id ) ) {
+                $output = -1;
+        } else {
                 // add partner id.
                 update_post_meta( $post_id, 'partner', (string) $params['partner_id'] );
 		// add video id.
@@ -209,6 +233,57 @@ function lvjm_import_video( $params = '' ) {
 	wp_die();
 }
 add_action( 'wp_ajax_lvjm_import_video', 'lvjm_import_video' );
+
+/**
+ * TMW Addon — Unique SEO Video Titles Generator
+ * Version: v1.5.5-wps-livejasmin-unique-video-titles
+ */
+add_action( 'wps_livejasmin_before_video_insert', function( &$video_data ) {
+
+        if ( empty( $video_data['title'] ) || empty( $video_data['model_name'] ) ) {
+                return;
+        }
+
+        $model_name = trim( $video_data['model_name'] );
+        $old_title  = sanitize_text_field( $video_data['title'] );
+
+        // Build SEO-safe, unique title using model name and randomized phrase set.
+        $phrases = array(
+                'Exclusive Live Chat with %s',
+                '%s in Lingerie – Wet & Wild Private Show',
+                'Watch %s in Hot Live Chat – Purple Dreams',
+                '%s’s Sensual Show – Private & Intense',
+                'Meet %s in the Most Exciting Webcam Session',
+                'Private Moments with %s – Only on Top-Models.Webcam',
+                'Seductive %s Enjoys Her Toys in Live Chat',
+                '%s in a Steamy Wet Lingerie Show',
+                'Purple Passion with %s – Private Tease Live',
+                'Intimate Chat with %s – Discover Her Secret Side',
+        );
+
+        // Randomly choose one format.
+        $format    = $phrases[ array_rand( $phrases ) ];
+        $new_title = sprintf( $format, $model_name );
+
+        // Avoid duplicates by checking database.
+        global $wpdb;
+        $exists = $wpdb->get_var(
+                $wpdb->prepare(
+                        "SELECT ID FROM {$wpdb->posts} WHERE post_title = %s LIMIT 1",
+                        $new_title
+                )
+        );
+
+        if ( $exists ) {
+                // Append small random token if already taken.
+                $new_title .= ' #' . wp_rand( 100, 999 );
+        }
+
+        $video_data['title'] = $new_title;
+
+        error_log( '[WPS-LJ-UNIQUE] Updated video title: ' . $old_title . ' → ' . $new_title );
+
+}, 10, 1 );
 
 if ( ! function_exists( 'lvjm_get_model_placeholder_image_url' ) ) {
         /**
