@@ -719,13 +719,174 @@ add_action('admin_menu', function () {
 }, 999);
 
 add_action('admin_init', function(){
-	if (!is_admin()) return;
-	if (!current_user_can('manage_categories')) return;
-	$tax = isset($_GET['taxonomy']) ? sanitize_text_field(wp_unslash($_GET['taxonomy'])) : '';
-	if ($tax === 'actors') {
-		$pt  = isset($_GET['post_type']) ? sanitize_text_field(wp_unslash($_GET['post_type'])) : 'video';
-		$dst = add_query_arg(array('taxonomy'=>'models','post_type'=>$pt), admin_url('edit-tags.php'));
-		wp_safe_redirect($dst, 301);
-		exit;
-	}
+        if (!is_admin()) return;
+        if (!current_user_can('manage_categories')) return;
+        $tax = isset($_GET['taxonomy']) ? sanitize_text_field(wp_unslash($_GET['taxonomy'])) : '';
+        if ($tax === 'actors') {
+                $pt  = isset($_GET['post_type']) ? sanitize_text_field(wp_unslash($_GET['post_type'])) : 'video';
+                $dst = add_query_arg(array('taxonomy'=>'models','post_type'=>$pt), admin_url('edit-tags.php'));
+                wp_safe_redirect($dst, 301);
+                exit;
+        }
 });
+
+// === [TMW-TAX-AUDIT-UI] ===
+add_action('registered_taxonomy', function($taxonomy, $object_type, $args) {
+        if ('models' !== $taxonomy) {
+                return;
+        }
+
+        $phase = array();
+        foreach (array('plugins_loaded', 'after_setup_theme', 'init', 'admin_init') as $hook) {
+                $phase[] = $hook . '=' . (did_action($hook) ? 'yes' : 'no');
+        }
+
+        error_log('[TMW-TAX-AUDIT-UI] register_taxonomy("models") triggered.');
+        error_log('[TMW-TAX-AUDIT-UI] Context: ' . implode(', ', $phase));
+
+        $object_type = (array) $object_type;
+        error_log('[TMW-TAX-AUDIT-UI] registered for object types: ' . implode(', ', $object_type));
+
+        $watched_args = array(
+                'show_ui',
+                'show_in_menu',
+                'show_admin_column',
+                'show_in_quick_edit',
+                'meta_box_cb',
+        );
+
+        foreach ($watched_args as $flag) {
+                $value = array_key_exists($flag, $args) ? $args[$flag] : '(unset)';
+
+                if ('meta_box_cb' === $flag) {
+                        if (is_callable($value)) {
+                                $value = 'callable';
+                        } elseif (is_null($value)) {
+                                $value = 'null';
+                        }
+                }
+
+                if (is_array($value)) {
+                        $value = wp_json_encode($value);
+                } elseif (! is_scalar($value)) {
+                        $value = gettype($value);
+                }
+
+                error_log(sprintf('[TMW-TAX-AUDIT-UI] arg %s = %s', $flag, var_export($value, true)));
+        }
+}, 10, 3);
+
+add_action('init', function() {
+        global $wp_taxonomies, $wp_filter;
+
+        if (!isset($wp_taxonomies['models'])) {
+                error_log('[TMW-TAX-AUDIT-UI] Taxonomy "models" not registered yet.');
+                return;
+        }
+
+        $t = $wp_taxonomies['models'];
+        $props = array(
+                'hierarchical'      => $t->hierarchical,
+                'public'            => $t->public,
+                'show_ui'           => $t->show_ui,
+                'show_in_menu'      => $t->show_in_menu,
+                'show_admin_column' => $t->show_admin_column,
+                'show_in_quick_edit'=> property_exists($t, 'show_in_quick_edit') ? $t->show_in_quick_edit : '(unset)',
+                'meta_box_cb'       => is_callable($t->meta_box_cb) ? 'custom_callback' : (is_null($t->meta_box_cb) ? 'null' : $t->meta_box_cb),
+        );
+
+        error_log('[TMW-TAX-AUDIT-UI] Found taxonomy: models');
+        foreach ($props as $key => $val) {
+                error_log(sprintf('[TMW-TAX-AUDIT-UI] %s = %s', $key, var_export($val, true)));
+        }
+
+        $object_type = isset($t->object_type) ? (array) $t->object_type : array();
+        error_log('[TMW-TAX-AUDIT-UI] object_types = ' . implode(', ', $object_type));
+
+        $issues = array();
+        if (empty($t->show_ui)) {
+                $issues[] = 'show_ui disabled';
+        }
+        if (!in_array('video', $object_type, true)) {
+                $issues[] = 'video post type missing';
+        }
+        if (false === $t->meta_box_cb) {
+                $issues[] = 'meta_box_cb explicitly false';
+        }
+
+        if (!empty($issues)) {
+                error_log('[TMW-TAX-AUDIT-UI] Likely cause: ' . implode('; ', $issues));
+        } else {
+                error_log('[TMW-TAX-AUDIT-UI] No immediate misconfiguration detected.');
+        }
+
+        $recommendations = array();
+        if (empty($t->show_ui)) {
+                $recommendations[] = 'set show_ui=true';
+        }
+        if (!in_array('video', $object_type, true)) {
+                $recommendations[] = 'call register_taxonomy_for_object_type("models", "video")';
+        }
+        if (false === $t->meta_box_cb) {
+                $recommendations[] = 'set meta_box_cb=null';
+        }
+
+        if (!empty($recommendations)) {
+                error_log('[TMW-TAX-AUDIT-UI] Recommended fix: ' . implode('; ', $recommendations) . '; priority=50');
+        }
+
+        $hook_targets = array(
+                'register_taxonomy_args',
+                'add_meta_boxes',
+                'add_meta_boxes_video',
+        );
+
+        foreach ($hook_targets as $hook_name) {
+                if (has_filter($hook_name)) {
+                        $details = array();
+                        if (isset($wp_filter[$hook_name]) && $wp_filter[$hook_name] instanceof WP_Hook) {
+                                foreach ($wp_filter[$hook_name]->callbacks as $priority => $callbacks) {
+                                        foreach ($callbacks as $callback_id => $callback) {
+                                                $details[] = $hook_name . '@' . $priority . ':' . tmw_tax_audit_callback_to_string($callback['function']);
+                                        }
+                                }
+                        }
+
+                        if (!empty($details)) {
+                                error_log('[TMW-TAX-AUDIT-UI] Hooks detected: ' . implode(', ', $details));
+                        } else {
+                                error_log('[TMW-TAX-AUDIT-UI] Hooks detected on ' . $hook_name . ' but unable to enumerate callbacks.');
+                        }
+                }
+        }
+}, 99);
+
+if (!function_exists('tmw_tax_audit_callback_to_string')) {
+        /**
+         * Helper for [TMW-TAX-AUDIT-UI] logging.
+         *
+         * @param callable $callback Callback.
+         *
+         * @return string
+         */
+        function tmw_tax_audit_callback_to_string($callback) {
+                if (is_string($callback)) {
+                        return $callback;
+                }
+
+                if ($callback instanceof Closure) {
+                        return 'closure';
+                }
+
+                if (is_array($callback)) {
+                        $class = is_object($callback[0]) ? get_class($callback[0]) : (string) $callback[0];
+                        return $class . '::' . $callback[1];
+                }
+
+                if (is_object($callback) && method_exists($callback, '__invoke')) {
+                        return get_class($callback) . '::__invoke';
+                }
+
+                return 'callable';
+        }
+}
